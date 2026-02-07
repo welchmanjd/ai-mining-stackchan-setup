@@ -16,6 +16,7 @@ namespace AiStackchanSetup.Services;
 
 public class SerialService
 {
+    private static readonly Encoding Utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     public int BaudRate { get; set; } = 115200;
 
     public Task<IReadOnlyList<SerialPortInfo>> DetectPortsAsync()
@@ -58,6 +59,11 @@ public class SerialService
             return new HelloResult { Success = false, Message = "デバイス応答がありません" };
         }
 
+        if (response.StartsWith("@OK HELLO", StringComparison.OrdinalIgnoreCase))
+        {
+            return new HelloResult { Success = true, Message = "OK" };
+        }
+
         if (!response.StartsWith("HELLO_OK", StringComparison.OrdinalIgnoreCase))
         {
             return new HelloResult { Success = false, Message = "応答が期待形式ではありません" };
@@ -69,41 +75,76 @@ public class SerialService
 
     public async Task<ConfigResult> SendConfigAsync(string portName, DeviceConfig config)
     {
-        var json = JsonSerializer.Serialize(config);
-        var response = await SendCommandAsync(portName, $"CFG_SET {json}", TimeSpan.FromSeconds(5));
-        if (response == null)
+        if (!string.IsNullOrWhiteSpace(config.WifiSsid))
         {
-            return new ConfigResult { Success = false, Message = "設定送信がタイムアウトしました" };
+            var result = await SendSetAsync(portName, "wifi_ssid", config.WifiSsid);
+            if (!result.Success) return result;
         }
 
-        if (!response.StartsWith("CFG_RESULT", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(config.WifiPassword))
         {
-            return new ConfigResult { Success = false, Message = "設定結果が不明です" };
+            var result = await SendSetAsync(portName, "wifi_pass", config.WifiPassword);
+            if (!result.Success) return result;
         }
 
-        return ParseOkResult(response, "CFG_RESULT");
+        if (!string.IsNullOrWhiteSpace(config.AzureRegion))
+        {
+            var result = await SendSetAsync(portName, "az_speech_region", config.AzureRegion);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.AzureKey))
+        {
+            var result = await SendSetAsync(portName, "az_speech_key", config.AzureKey);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.OpenAiKey))
+        {
+            Log.Warning("OpenAI APIキーはランタイム設定未対応のため送信をスキップします");
+        }
+
+        return new ConfigResult { Success = true, Message = "OK" };
     }
 
     public async Task<ConfigResult> ApplyConfigAsync(string portName)
     {
-        var response = await SendCommandAsync(portName, "CFG_APPLY", TimeSpan.FromSeconds(10));
-        if (response == null)
+        var saveResponse = await SendCommandAsync(portName, "SAVE", TimeSpan.FromSeconds(10));
+        if (saveResponse == null)
         {
-            return new ConfigResult { Success = false, Message = "適用がタイムアウトしました" };
+            return new ConfigResult { Success = false, Message = "保存がタイムアウトしました" };
         }
 
-        if (!response.StartsWith("CFG_RESULT", StringComparison.OrdinalIgnoreCase))
+        if (!saveResponse.StartsWith("@OK SAVE", StringComparison.OrdinalIgnoreCase))
         {
-            return new ConfigResult { Success = false, Message = "適用結果が不明です" };
+            if (saveResponse.Contains("CFG saved", StringComparison.OrdinalIgnoreCase))
+            {
+                // accept device log line as success
+            }
+            else
+            {
+                return new ConfigResult { Success = false, Message = "保存結果が不明です" };
+            }
         }
 
-        return ParseOkResult(response, "CFG_RESULT");
+        var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(5));
+        if (rebootResponse != null && !rebootResponse.StartsWith("@OK REBOOT", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ConfigResult { Success = false, Message = "再起動結果が不明です" };
+        }
+
+        return new ConfigResult { Success = true, Message = "OK" };
     }
 
     public async Task<DeviceTestResult> RunTestAsync(string portName)
     {
         var response = await SendCommandAsync(portName, "TEST_RUN", TimeSpan.FromSeconds(30));
         if (response == null)
+        {
+            return new DeviceTestResult { Success = false, Skipped = true, Message = "デバイス側テスト未実装の可能性" };
+        }
+
+        if (response.StartsWith("@ERR unknown_cmd", StringComparison.OrdinalIgnoreCase))
         {
             return new DeviceTestResult { Success = false, Skipped = true, Message = "デバイス側テスト未実装の可能性" };
         }
@@ -123,14 +164,14 @@ public class SerialService
             using var serial = new SerialPort(portName, BaudRate)
             {
                 NewLine = "\n",
-                Encoding = Encoding.UTF8,
+                Encoding = Utf8NoBom,
                 ReadTimeout = 2000,
                 WriteTimeout = 2000
             };
 
             serial.Open();
-            await using var writer = new StreamWriter(serial.BaseStream, Encoding.UTF8) { AutoFlush = true };
-            using var reader = new StreamReader(serial.BaseStream, Encoding.UTF8);
+            await using var writer = new StreamWriter(serial.BaseStream, Utf8NoBom) { AutoFlush = true };
+            using var reader = new StreamReader(serial.BaseStream, Utf8NoBom);
 
             await writer.WriteLineAsync("LOG_DUMP");
 
@@ -171,37 +212,63 @@ public class SerialService
 
     private async Task<string?> SendCommandAsync(string portName, string command, TimeSpan timeout)
     {
+        var trace = new StringBuilder();
+        trace.AppendLine("=== serial command ===");
+        trace.AppendLine($"timestamp: {DateTimeOffset.Now:O}");
+        trace.AppendLine($"port: {portName}");
+        trace.AppendLine($"baud: {BaudRate}");
+        trace.AppendLine($"timeout_ms: {(int)timeout.TotalMilliseconds}");
+        trace.AppendLine($"command: {command}");
+        SerialPort? serial = null;
+        StreamWriter? writer = null;
+        StreamReader? reader = null;
+        string? line = null;
         try
         {
-            using var serial = new SerialPort(portName, BaudRate)
+            serial = new SerialPort(portName, BaudRate)
             {
                 NewLine = "\n",
-                Encoding = Encoding.UTF8,
+                Encoding = Utf8NoBom,
                 ReadTimeout = (int)timeout.TotalMilliseconds,
                 WriteTimeout = (int)timeout.TotalMilliseconds
             };
 
             serial.Open();
-            await using var writer = new StreamWriter(serial.BaseStream, Encoding.UTF8) { AutoFlush = true };
-            using var reader = new StreamReader(serial.BaseStream, Encoding.UTF8);
+            writer = new StreamWriter(serial.BaseStream, Utf8NoBom) { AutoFlush = true };
+            reader = new StreamReader(serial.BaseStream, Utf8NoBom);
 
             Log.Information("Serial send {Command}", command.Split(' ')[0]);
+            trace.AppendLine("write: ok");
             await writer.WriteLineAsync(command);
 
-            var line = await ReadLineAsync(reader, timeout);
+            line = await ReadResponseLineAsync(reader, timeout, trace);
             if (line == null)
             {
                 Log.Warning("Serial timeout for {Command}", command.Split(' ')[0]);
+                trace.AppendLine("read: timeout");
+                await AppendSerialTraceAsync(trace);
                 return null;
             }
 
             Log.Information("Serial recv: {Line}", line);
+            trace.AppendLine($"read: {line}");
+            await AppendSerialTraceAsync(trace);
             return line.Trim();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Serial command failed");
+            trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
+            await AppendSerialTraceAsync(trace);
             return null;
+        }
+        finally
+        {
+            try { writer?.Flush(); } catch { /* ignore */ }
+            try { writer?.Dispose(); } catch { /* ignore */ }
+            try { reader?.Dispose(); } catch { /* ignore */ }
+            try { serial?.Close(); } catch { /* ignore */ }
+            try { serial?.Dispose(); } catch { /* ignore */ }
         }
     }
 
@@ -215,6 +282,45 @@ public class SerialService
         catch (OperationCanceledException)
         {
             return null;
+        }
+    }
+
+    private async Task<string?> ReadResponseLineAsync(StreamReader reader, TimeSpan timeout, StringBuilder trace)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            var remaining = deadline - DateTime.UtcNow;
+            var line = await ReadLineAsync(reader, remaining);
+            if (line == null)
+            {
+                return null;
+            }
+
+            // Ignore non-protocol log lines from the device.
+            if (!line.StartsWith("@", StringComparison.OrdinalIgnoreCase))
+            {
+                trace.AppendLine($"read: {line}");
+                trace.AppendLine("read: ignored (non-protocol)");
+                continue;
+            }
+
+            return line;
+        }
+
+        return null;
+    }
+
+    private static async Task AppendSerialTraceAsync(StringBuilder trace)
+    {
+        try
+        {
+            Directory.CreateDirectory(LogService.LogDirectory);
+            await File.AppendAllTextAsync(LogService.SerialLogPath, trace.ToString() + Environment.NewLine);
+        }
+        catch
+        {
+            // ignore logging errors
         }
     }
 
@@ -308,5 +414,27 @@ public class SerialService
         {
             return new DeviceTestResult { Success = false, Message = "結果JSONが解析できません" };
         }
+    }
+
+    private async Task<ConfigResult> SendSetAsync(string portName, string key, string value)
+    {
+        var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(5));
+        if (response == null)
+        {
+            return new ConfigResult { Success = false, Message = $"設定送信がタイムアウトしました ({key})" };
+        }
+
+        if (response.StartsWith("@OK SET", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ConfigResult { Success = true, Message = "OK" };
+        }
+
+        if (response.StartsWith("@ERR SET", StringComparison.OrdinalIgnoreCase))
+        {
+            var reason = response["@ERR SET".Length..].Trim();
+            return new ConfigResult { Success = false, Message = $"設定失敗({key}): {reason}" };
+        }
+
+        return new ConfigResult { Success = false, Message = $"設定結果が不明です ({key})" };
     }
 }

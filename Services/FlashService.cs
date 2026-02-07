@@ -13,8 +13,6 @@ namespace AiStackchanSetup.Services;
 public class FlashService
 {
     public string? PlatformIoHome { get; set; }
-    public string EspflashPath { get; set; } = Path.Combine(AppContext.BaseDirectory, "tools", "espflash.exe");
-
     public async Task<FlashResult> FlashAsync(string portName, int baud, bool erase, string firmwarePath, CancellationToken token)
     {
         Directory.CreateDirectory(LogService.LogDirectory);
@@ -31,34 +29,17 @@ public class FlashService
                 token);
         }
 
-        var tool = SelectFlasherTool();
-        if (tool == FlasherTool.None)
+        var esptoolAvailable = IsEsptoolAvailable();
+        if (!esptoolAvailable)
         {
             return await FailWithLogAsync(
-                "書き込みツールが見つかりません。tools\\espflash.exe を同梱するか、PlatformIO を確認してください。",
-                "none",
+                "PlatformIO の Python / esptool.py が見つかりません。開発環境の PlatformIO を確認してください。",
+                "esptool.py",
                 portName,
                 baud,
                 erase,
                 firmwarePath,
                 token);
-        }
-
-        if (tool == FlasherTool.Espflash)
-        {
-            if (erase)
-            {
-                var eraseResult = await RunEspflashAsync(BuildEspflashEraseArgs(portName, baud), portName, baud, erase, firmwarePath, token);
-                if (!eraseResult.Success)
-                {
-                    eraseResult.Message = "erase_flash 失敗";
-                    return eraseResult;
-                }
-            }
-
-            var result = await RunEspflashAsync(BuildEspflashWriteArgs(portName, baud, firmwarePath), portName, baud, erase, firmwarePath, token);
-            result.Message = result.Success ? "書き込み成功" : "書き込み失敗";
-            return result;
         }
 
         if (erase)
@@ -155,120 +136,6 @@ public class FlashService
         }
     }
 
-    private async Task<FlashResult> RunEspflashAsync(string arguments, string portName, int baud, bool erase, string firmwarePath, CancellationToken token)
-    {
-        var logPath = LogService.FlashLogPath;
-        var output = new StringBuilder();
-
-        try
-        {
-            AppendFlashContext(output, "espflash.exe", portName, baud, erase, firmwarePath);
-            output.AppendLine($"espflash: {EspflashPath}");
-            output.AppendLine($"args: {arguments}");
-            await AppendEspflashDiagnosticsAsync(output, token);
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = EspflashPath,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-            process.Start();
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-
-            await Task.WhenAll(stdoutTask, stderrTask);
-            try
-            {
-                await process.WaitForExitAsync(token);
-            }
-            catch (OperationCanceledException)
-            {
-                TryKillProcess(process, output, "espflash canceled");
-                throw;
-            }
-
-            output.AppendLine(stdoutTask.Result);
-            output.AppendLine(stderrTask.Result);
-            await File.WriteAllTextAsync(logPath, output.ToString(), token);
-
-            return new FlashResult
-            {
-                Success = process.ExitCode == 0,
-                ExitCode = process.ExitCode,
-                LogPath = logPath
-            };
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "espflash execution failed");
-            await File.WriteAllTextAsync(logPath, output.ToString(), token);
-            return new FlashResult
-            {
-                Success = false,
-                ExitCode = -1,
-                Message = ex.Message,
-                LogPath = logPath
-            };
-        }
-    }
-
-    private async Task AppendEspflashDiagnosticsAsync(StringBuilder output, CancellationToken token)
-    {
-        var version = await RunEspflashProbeAsync("--version", token);
-        output.AppendLine("=== espflash --version ===");
-        output.AppendLine(version);
-
-        var help = await RunEspflashProbeAsync("write-bin --help", token);
-        output.AppendLine("=== espflash write-bin --help ===");
-        output.AppendLine(help);
-    }
-
-    private async Task<string> RunEspflashProbeAsync(string arguments, CancellationToken token)
-    {
-        try
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = EspflashPath,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-            process.Start();
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-
-            await Task.WhenAll(stdoutTask, stderrTask);
-            try
-            {
-                await process.WaitForExitAsync(token);
-            }
-            catch (OperationCanceledException)
-            {
-                TryKillProcess(process, null, "espflash probe canceled");
-                return "canceled";
-            }
-
-            return $"{stdoutTask.Result}{Environment.NewLine}{stderrTask.Result}".Trim();
-        }
-        catch (Exception ex)
-        {
-            return $"probe failed: {ex.Message}";
-        }
-    }
-
     private static void TryKillProcess(Process process, StringBuilder? output, string reason)
     {
         try
@@ -283,16 +150,6 @@ public class FlashService
         {
             output?.AppendLine($"Process kill failed ({reason}): {ex.Message}");
         }
-    }
-
-    private static string BuildEspflashWriteArgs(string portName, int baud, string firmwarePath)
-    {
-        return $"write-bin --port \"{portName}\" --baud {baud} 0x0 \"{firmwarePath}\"";
-    }
-
-    private static string BuildEspflashEraseArgs(string portName, int baud)
-    {
-        return $"erase-flash --port \"{portName}\" --baud {baud}";
     }
 
     private static void AppendFlashContext(StringBuilder output, string toolName, string portName, int baud, bool erase, string firmwarePath)
@@ -377,27 +234,10 @@ public class FlashService
         return Path.Combine(userProfile, ".platformio");
     }
 
-    private FlasherTool SelectFlasherTool()
+    private bool IsEsptoolAvailable()
     {
-        if (File.Exists(EspflashPath))
-        {
-            return FlasherTool.Espflash;
-        }
-
         var pythonPath = ResolvePythonPath();
         var esptoolPyPath = ResolveEsptoolPyPath();
-        if (!string.IsNullOrWhiteSpace(pythonPath) && !string.IsNullOrWhiteSpace(esptoolPyPath))
-        {
-            return FlasherTool.Esptool;
-        }
-
-        return FlasherTool.None;
-    }
-
-    private enum FlasherTool
-    {
-        None,
-        Espflash,
-        Esptool
+        return !string.IsNullOrWhiteSpace(pythonPath) && !string.IsNullOrWhiteSpace(esptoolPyPath);
     }
 }

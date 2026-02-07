@@ -14,6 +14,7 @@ public static class LogService
     public static readonly string AppLogRollingPath = Path.Combine(LogDirectory, "app-.log");
     public static readonly string FlashLogPath = Path.Combine(LogDirectory, "flash_esptool.log");
     public static readonly string DeviceLogPath = Path.Combine(LogDirectory, "device_log.txt");
+    public static readonly string SerialLogPath = Path.Combine(LogDirectory, "serial_comm.log");
 
     public static void Initialize()
     {

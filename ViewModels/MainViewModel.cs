@@ -32,7 +32,7 @@ public class MainViewModel : BindableBase
     private bool _isAdvanced;
 
     private SerialPortInfo? _selectedPort;
-    private string _firmwarePath = Path.Combine(AppContext.BaseDirectory, "Resources", "firmware", "stackchan_core2.bin");
+    private string _firmwarePath = ResolveDefaultFirmwarePath();
     private string _flashBaudText = "921600";
     private bool _flashErase;
     private string _flashStatus = "";
@@ -597,5 +597,12 @@ public class MainViewModel : BindableBase
                 PrimaryButtonText = "閉じる";
                 break;
         }
+    }
+
+    private static string ResolveDefaultFirmwarePath()
+    {
+        var externalRoot = @"C:\Users\welch\Documents\PlatformIO\Projects\mining-stackchan-setup\firmware";
+        var externalPath = Path.Combine(externalRoot, "stackchan_core2.bin");
+        return externalPath;
     }
 }
