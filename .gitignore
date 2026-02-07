@@ -1,0 +1,22 @@
+# .NET / Visual Studio
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+*.sln.iml
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Firmware binaries (may contain secrets)
+Resources/firmware/*.bin

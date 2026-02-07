@@ -62,6 +62,7 @@ public class MainViewModel : BindableBase
         CloseCommand = new RelayCommand(() => Application.Current.Shutdown());
         BrowseFirmwareCommand = new RelayCommand(BrowseFirmware);
         OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
+        OpenFlashLogCommand = new RelayCommand(OpenFlashLog);
         CreateSupportPackCommand = new AsyncRelayCommand(CreateSupportPackAsync);
 
         UpdateStepMetadata();
@@ -162,6 +163,8 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _flashStatus, value);
     }
 
+    public string FlashLogPath => LogService.FlashLogPath;
+
     public string ConfigWifiSsid
     {
         get => _configWifiSsid;
@@ -226,6 +229,7 @@ public class MainViewModel : BindableBase
     public AsyncRelayCommand PrimaryCommand { get; }
     public RelayCommand BrowseFirmwareCommand { get; }
     public RelayCommand OpenLogFolderCommand { get; }
+    public RelayCommand OpenFlashLogCommand { get; }
     public AsyncRelayCommand CreateSupportPackCommand { get; }
 
     private async Task PrimaryAsync()
@@ -329,14 +333,14 @@ public class MainViewModel : BindableBase
             else
             {
                 FlashStatus = "書き込み失敗";
-                ErrorMessage = "書き込みに失敗しました。再試行してください。";
+                ErrorMessage = $"書き込みに失敗しました。ログ: {result.LogPath}";
                 PrimaryButtonText = "再試行";
             }
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Flash failed");
-            ErrorMessage = "書き込みに失敗しました";
+            ErrorMessage = $"書き込みに失敗しました。ログ: {LogService.FlashLogPath}";
             _lastError = ex.Message;
             PrimaryButtonText = "再試行";
         }
@@ -499,6 +503,30 @@ public class MainViewModel : BindableBase
         catch (Exception ex)
         {
             Log.Error(ex, "Open log folder failed");
+        }
+    }
+
+    private void OpenFlashLog()
+    {
+        try
+        {
+            Directory.CreateDirectory(LogService.LogDirectory);
+            if (File.Exists(LogService.FlashLogPath))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = LogService.FlashLogPath,
+                    UseShellExecute = true
+                });
+            }
+            else
+            {
+                OpenLogFolder();
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Open flash log failed");
         }
     }
 

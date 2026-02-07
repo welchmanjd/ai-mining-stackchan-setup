@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,32 +21,34 @@ public class FlashService
 
         if (!File.Exists(firmwarePath))
         {
-            return new FlashResult
-            {
-                Success = false,
-                ExitCode = -1,
-                Message = "ファームウェアファイルが見つかりません。Resources/firmware を確認してください。",
-                LogPath = LogService.FlashLogPath
-            };
+            return await FailWithLogAsync(
+                "ファームウェアファイルが見つかりません。Resources/firmware を確認してください。",
+                "none",
+                portName,
+                baud,
+                erase,
+                firmwarePath,
+                token);
         }
 
         var tool = SelectFlasherTool();
         if (tool == FlasherTool.None)
         {
-            return new FlashResult
-            {
-                Success = false,
-                ExitCode = -1,
-                Message = "書き込みツールが見つかりません。tools\\espflash.exe を同梱するか、PlatformIO を確認してください。",
-                LogPath = LogService.FlashLogPath
-            };
+            return await FailWithLogAsync(
+                "書き込みツールが見つかりません。tools\\espflash.exe を同梱するか、PlatformIO を確認してください。",
+                "none",
+                portName,
+                baud,
+                erase,
+                firmwarePath,
+                token);
         }
 
         if (tool == FlasherTool.Espflash)
         {
             if (erase)
             {
-                var eraseResult = await RunEspflashAsync(BuildEspflashEraseArgs(portName, baud), token);
+                var eraseResult = await RunEspflashAsync(BuildEspflashEraseArgs(portName, baud), portName, baud, erase, firmwarePath, token);
                 if (!eraseResult.Success)
                 {
                     eraseResult.Message = "erase_flash 失敗";
@@ -53,14 +56,14 @@ public class FlashService
                 }
             }
 
-            var result = await RunEspflashAsync(BuildEspflashWriteArgs(portName, baud, firmwarePath), token);
+            var result = await RunEspflashAsync(BuildEspflashWriteArgs(portName, baud, firmwarePath), portName, baud, erase, firmwarePath, token);
             result.Message = result.Success ? "書き込み成功" : "書き込み失敗";
             return result;
         }
 
         if (erase)
         {
-            var eraseResult = await RunEsptoolAsync($"--chip esp32 --port {portName} --baud {baud} erase_flash", token);
+            var eraseResult = await RunEsptoolAsync($"--chip esp32 --port {portName} --baud {baud} erase_flash", portName, baud, erase, firmwarePath, token);
             if (!eraseResult.Success)
             {
                 eraseResult.Message = "erase_flash 失敗";
@@ -69,20 +72,25 @@ public class FlashService
         }
 
         var args = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
-        var esptoolResult = await RunEsptoolAsync(args, token);
+        var esptoolResult = await RunEsptoolAsync(args, portName, baud, erase, firmwarePath, token);
         esptoolResult.Message = esptoolResult.Success ? "書き込み成功" : "書き込み失敗";
         return esptoolResult;
     }
 
-    private async Task<FlashResult> RunEsptoolAsync(string arguments, CancellationToken token)
+    private async Task<FlashResult> RunEsptoolAsync(string arguments, string portName, int baud, bool erase, string firmwarePath, CancellationToken token)
     {
         var logPath = LogService.FlashLogPath;
         var output = new StringBuilder();
 
         try
         {
+            AppendFlashContext(output, "esptool.py", portName, baud, erase, firmwarePath);
+            output.AppendLine($"args: {arguments}");
+
             var pythonPath = ResolvePythonPath();
             var esptoolPyPath = ResolveEsptoolPyPath();
+            output.AppendLine($"python: {pythonPath ?? "not found"}");
+            output.AppendLine($"esptool.py: {esptoolPyPath ?? "not found"}");
             if (string.IsNullOrWhiteSpace(pythonPath) || string.IsNullOrWhiteSpace(esptoolPyPath))
             {
                 var message = "PlatformIO の Python / esptool.py が見つかりません。開発環境の PlatformIO を確認してください。";
@@ -147,13 +155,16 @@ public class FlashService
         }
     }
 
-    private async Task<FlashResult> RunEspflashAsync(string arguments, CancellationToken token)
+    private async Task<FlashResult> RunEspflashAsync(string arguments, string portName, int baud, bool erase, string firmwarePath, CancellationToken token)
     {
         var logPath = LogService.FlashLogPath;
         var output = new StringBuilder();
 
         try
         {
+            AppendFlashContext(output, "espflash.exe", portName, baud, erase, firmwarePath);
+            output.AppendLine($"espflash: {EspflashPath}");
+            output.AppendLine($"args: {arguments}");
             await AppendEspflashDiagnosticsAsync(output, token);
 
             var startInfo = new ProcessStartInfo
@@ -282,6 +293,57 @@ public class FlashService
     private static string BuildEspflashEraseArgs(string portName, int baud)
     {
         return $"erase-flash --port \"{portName}\" --baud {baud}";
+    }
+
+    private static void AppendFlashContext(StringBuilder output, string toolName, string portName, int baud, bool erase, string firmwarePath)
+    {
+        output.AppendLine("=== flash context ===");
+        output.AppendLine($"timestamp: {DateTimeOffset.Now:O}");
+        output.AppendLine($"tool: {toolName}");
+        output.AppendLine($"port: {portName}");
+        output.AppendLine($"baud: {baud}");
+        output.AppendLine($"erase: {erase}");
+        output.AppendLine($"firmware: {firmwarePath}");
+
+        if (File.Exists(firmwarePath))
+        {
+            var info = new FileInfo(firmwarePath);
+            output.AppendLine($"firmware_size: {info.Length}");
+            output.AppendLine($"firmware_mtime: {info.LastWriteTime:O}");
+            output.AppendLine($"firmware_sha256: {ComputeSha256(firmwarePath)}");
+        }
+    }
+
+    private static string ComputeSha256(string path)
+    {
+        using var stream = File.OpenRead(path);
+        using var sha = SHA256.Create();
+        var hash = sha.ComputeHash(stream);
+        return Convert.ToHexString(hash);
+    }
+
+    private static async Task<FlashResult> FailWithLogAsync(
+        string message,
+        string toolName,
+        string portName,
+        int baud,
+        bool erase,
+        string firmwarePath,
+        CancellationToken token)
+    {
+        var logPath = LogService.FlashLogPath;
+        var output = new StringBuilder();
+        AppendFlashContext(output, toolName, portName, baud, erase, firmwarePath);
+        output.AppendLine(message);
+        await File.WriteAllTextAsync(logPath, output.ToString(), token);
+
+        return new FlashResult
+        {
+            Success = false,
+            ExitCode = -1,
+            Message = message,
+            LogPath = logPath
+        };
     }
 
     private string? ResolvePythonPath()

@@ -60,7 +60,10 @@
                                             <TextBox Width="120" Text="{Binding FlashBaud}" />
                                         </StackPanel>
                                         <CheckBox Content="Erase flash を実行" IsChecked="{Binding FlashErase}" Margin="0,0,0,6" />
-                                        <Button Content="ファイルを選ぶ" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BrowseFirmwareCommand}" />
+                                        <Button Content="ファイルを選ぶ" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BrowseFirmwareCommand}" Margin="0,0,0,6" />
+                                        <TextBlock Text="書き込みログ" FontWeight="SemiBold" Margin="0,4,0,2" />
+                                        <TextBlock Text="{Binding FlashLogPath}" FontSize="12" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                        <Button Content="書き込みログを開く" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenFlashLogCommand}" />
                                     </StackPanel>
                                 </Expander>
                             </StackPanel>
