@@ -98,6 +98,7 @@ public class FlashService
 
             using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             process.Start();
+            using var registration = token.Register(() => TryKillProcess(process, output, "cancellation"));
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
             var stderrTask = process.StandardError.ReadToEndAsync();
@@ -119,6 +120,18 @@ public class FlashService
             {
                 Success = success,
                 ExitCode = process.ExitCode,
+                LogPath = logPath
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            output.AppendLine("Process cancelled.");
+            await File.WriteAllTextAsync(logPath, output.ToString(), token);
+            return new FlashResult
+            {
+                Success = false,
+                ExitCode = -1,
+                Message = "キャンセルされました",
                 LogPath = logPath
             };
         }

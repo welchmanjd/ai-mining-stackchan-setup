@@ -11,7 +11,7 @@ namespace AiStackchanSetup.Services;
 
 public class SupportPackService
 {
-    public async Task<string> CreateSupportPackAsync(SupportSummary summary)
+    public async Task<string> CreateSupportPackAsync(SupportSummary summary, DeviceConfig config)
     {
         Directory.CreateDirectory(LogService.LogDirectory);
 
@@ -21,9 +21,10 @@ public class SupportPackService
         {
             using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
 
-            AddLatestAppLog(zip);
-            AddFileIfExists(zip, LogService.FlashLogPath, "flash_esptool.log");
-            AddFileIfExists(zip, LogService.DeviceLogPath, "device_log.txt");
+            await AddLatestAppLogAsync(zip, config);
+            await AddFileIfExistsRedactedAsync(zip, LogService.FlashLogPath, "flash_esptool.log", config);
+            await AddFileIfExistsRedactedAsync(zip, LogService.DeviceLogPath, "device_log.txt", config);
+            await AddFileIfExistsRedactedAsync(zip, LogService.SerialLogPath, "serial_comm.log", config);
 
             var summaryJson = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
             var entry = zip.CreateEntry("summary.json");
@@ -39,7 +40,7 @@ public class SupportPackService
         return zipPath;
     }
 
-    private static void AddLatestAppLog(ZipArchive zip)
+    private static async Task AddLatestAppLogAsync(ZipArchive zip, DeviceConfig config)
     {
         var dir = LogService.LogDirectory;
         var latest = Directory.GetFiles(dir, "app-*.log")
@@ -48,20 +49,25 @@ public class SupportPackService
 
         if (!string.IsNullOrWhiteSpace(latest))
         {
-            zip.CreateEntryFromFile(latest, "app.log");
+            await AddFileIfExistsRedactedAsync(zip, latest, "app.log", config);
         }
         else
         {
             var fallback = Path.Combine(dir, "app.log");
-            AddFileIfExists(zip, fallback, "app.log");
+            await AddFileIfExistsRedactedAsync(zip, fallback, "app.log", config);
         }
     }
 
-    private static void AddFileIfExists(ZipArchive zip, string path, string entryName)
+    private static async Task AddFileIfExistsRedactedAsync(ZipArchive zip, string path, string entryName, DeviceConfig config)
     {
         if (File.Exists(path))
         {
-            zip.CreateEntryFromFile(path, entryName);
+            var raw = await File.ReadAllTextAsync(path);
+            var sanitized = AiStackchanSetup.Infrastructure.SensitiveDataRedactor.Redact(raw, config);
+            var entry = zip.CreateEntry(entryName);
+            await using var stream = entry.Open();
+            await using var writer = new StreamWriter(stream);
+            await writer.WriteAsync(sanitized);
         }
     }
 }

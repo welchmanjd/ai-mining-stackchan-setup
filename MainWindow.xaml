@@ -34,15 +34,15 @@
                                 <ComboBox ItemsSource="{Binding Ports}"
                                           SelectedItem="{Binding SelectedPort}"
                                           DisplayMemberPath="DisplayName"
-                                          IsEnabled="{Binding IsAdvanced}"
-                                          Visibility="{Binding IsAdvanced, Converter={StaticResource BoolToVisibility}}"
+                                          IsEnabled="{Binding IsManualPortSelection}"
+                                          Visibility="{Binding IsManualPortSelection, Converter={StaticResource BoolToVisibility}}"
                                           Margin="0,0,0,8" />
 
                                 <TextBlock Text="{Binding Step1Help}" Foreground="#B45309" Margin="0,0,0,8" />
 
-                                <Expander Header="詳細 (Advanced)" IsExpanded="{Binding IsAdvanced}">
+                                <Expander Header="詳細 (Advanced)" IsExpanded="{Binding IsAdvancedPanelOpen}">
                                     <StackPanel>
-                                        <CheckBox Content="手動でCOMポートを選択" IsChecked="{Binding IsAdvanced}" Margin="0,0,0,6" />
+                                        <CheckBox Content="手動でCOMポートを選択" IsChecked="{Binding IsManualPortSelection}" Margin="0,0,0,6" />
                                         <TextBlock Text="候補が出ない場合はUSBケーブル/ポート/ドライバを確認してください。" />
                                     </StackPanel>
                                 </Expander>
@@ -50,7 +50,8 @@
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=2}">
                                 <TextBlock Text="ファームウェアを書き込みます。" Margin="0,0,0,8" />
-                                <TextBlock Text="{Binding FirmwarePath, StringFormat=ファイル: {0}}" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding FirmwarePath, StringFormat=ファイル: {0}}" Margin="0,0,0,4" />
+                                <TextBlock Text="{Binding FirmwareInfoText, StringFormat=同梱FW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
                                 <ProgressBar IsIndeterminate="True" Height="8" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8" />
                                 <TextBlock Text="{Binding FlashStatus}" Foreground="#6B7280" Margin="0,0,0,8" />
 
@@ -114,6 +115,7 @@
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=6}">
                                 <TextBlock Text="OpenAI APIキーを設定します。" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding DeviceStatusSummary, StringFormat=デバイス状態: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="OpenAI APIキー" />
                                     <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
@@ -168,6 +170,7 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Content="中止" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CancelCommand}" IsEnabled="{Binding CanCancel}" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
                 <Button Content="閉じる" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CloseCommand}" Margin="0,0,12,0" />
                 <Button Content="{Binding PrimaryButtonText}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding PrimaryCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
             </StackPanel>

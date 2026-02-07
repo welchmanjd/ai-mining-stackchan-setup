@@ -21,8 +21,14 @@ public class SerialService
 
     public Task<IReadOnlyList<SerialPortInfo>> DetectPortsAsync()
     {
+        return DetectPortsAsync(CancellationToken.None);
+    }
+
+    public Task<IReadOnlyList<SerialPortInfo>> DetectPortsAsync(CancellationToken token)
+    {
         return Task.Run(() =>
         {
+            token.ThrowIfCancellationRequested();
             var portNames = SerialPort.GetPortNames();
             var descriptions = GetPortDescriptions();
             var list = new List<SerialPortInfo>();
@@ -43,7 +49,7 @@ public class SerialService
                 .OrderByDescending(p => p.Score)
                 .ThenBy(p => p.PortName)
                 .ToList();
-        });
+        }, token);
     }
 
     public SerialPortInfo? SelectBestPort(IEnumerable<SerialPortInfo> ports)
@@ -51,9 +57,14 @@ public class SerialService
         return ports.OrderByDescending(p => p.Score).FirstOrDefault();
     }
 
-    public async Task<HelloResult> HelloAsync(string portName)
+    public Task<HelloResult> HelloAsync(string portName)
     {
-        var response = await SendCommandAsync(portName, "HELLO", TimeSpan.FromSeconds(5));
+        return HelloAsync(portName, CancellationToken.None);
+    }
+
+    public async Task<HelloResult> HelloAsync(string portName, CancellationToken token)
+    {
+        var response = await SendCommandAsync(portName, "HELLO", TimeSpan.FromSeconds(5), token);
         if (response == null)
         {
             return new HelloResult { Success = false, Message = "デバイス応答がありません" };
@@ -70,50 +81,61 @@ public class SerialService
         }
 
         var json = response["HELLO_OK".Length..].Trim();
-        return new HelloResult { Success = true, Message = "OK", RawJson = json };
+        return new HelloResult
+        {
+            Success = true,
+            Message = "OK",
+            RawJson = json,
+            Info = DeviceHelloInfo.TryParse(json)
+        };
     }
 
-    public async Task<ConfigResult> SendConfigAsync(string portName, DeviceConfig config)
+    public Task<ConfigResult> SendConfigAsync(string portName, DeviceConfig config)
+    {
+        return SendConfigAsync(portName, config, CancellationToken.None);
+    }
+
+    public async Task<ConfigResult> SendConfigAsync(string portName, DeviceConfig config, CancellationToken token)
     {
         if (!string.IsNullOrWhiteSpace(config.WifiSsid))
         {
-            var result = await SendSetAsync(portName, "wifi_ssid", config.WifiSsid);
+            var result = await SendSetAsync(portName, "wifi_ssid", config.WifiSsid, token);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.WifiPassword))
         {
-            var result = await SendSetAsync(portName, "wifi_pass", config.WifiPassword);
+            var result = await SendSetAsync(portName, "wifi_pass", config.WifiPassword, token);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.DucoUser))
         {
-            var result = await SendSetAsync(portName, "duco_user", config.DucoUser);
+            var result = await SendSetAsync(portName, "duco_user", config.DucoUser, token);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.DucoMinerKey))
         {
-            var result = await SendSetAsync(portName, "duco_miner_key", config.DucoMinerKey);
+            var result = await SendSetAsync(portName, "duco_miner_key", config.DucoMinerKey, token);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.AzureRegion))
         {
-            var result = await SendSetAsync(portName, "az_speech_region", config.AzureRegion);
+            var result = await SendSetAsync(portName, "az_speech_region", config.AzureRegion, token);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.AzureKey))
         {
-            var result = await SendSetAsync(portName, "az_speech_key", config.AzureKey);
+            var result = await SendSetAsync(portName, "az_speech_key", config.AzureKey, token);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.AzureCustomSubdomain))
         {
-            var result = await SendSetAsync(portName, "az_custom_subdomain", config.AzureCustomSubdomain);
+            var result = await SendSetAsync(portName, "az_custom_subdomain", config.AzureCustomSubdomain, token);
             if (!result.Success) return result;
         }
 
@@ -125,9 +147,14 @@ public class SerialService
         return new ConfigResult { Success = true, Message = "OK" };
     }
 
-    public async Task<ConfigResult> ApplyConfigAsync(string portName)
+    public Task<ConfigResult> ApplyConfigAsync(string portName)
     {
-        var saveResponse = await SendCommandAsync(portName, "SAVE", TimeSpan.FromSeconds(10));
+        return ApplyConfigAsync(portName, CancellationToken.None);
+    }
+
+    public async Task<ConfigResult> ApplyConfigAsync(string portName, CancellationToken token)
+    {
+        var saveResponse = await SendCommandAsync(portName, "SAVE", TimeSpan.FromSeconds(10), token);
         if (saveResponse == null)
         {
             return new ConfigResult { Success = false, Message = "保存がタイムアウトしました" };
@@ -145,7 +172,7 @@ public class SerialService
             }
         }
 
-        var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(5));
+        var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(5), token);
         if (rebootResponse != null && !rebootResponse.StartsWith("@OK REBOOT", StringComparison.OrdinalIgnoreCase))
         {
             return new ConfigResult { Success = false, Message = "再起動結果が不明です" };
@@ -154,9 +181,14 @@ public class SerialService
         return new ConfigResult { Success = true, Message = "OK" };
     }
 
-    public async Task<DeviceTestResult> RunTestAsync(string portName)
+    public Task<DeviceTestResult> RunTestAsync(string portName)
     {
-        var response = await SendCommandAsync(portName, "TEST_RUN", TimeSpan.FromSeconds(30));
+        return RunTestAsync(portName, CancellationToken.None);
+    }
+
+    public async Task<DeviceTestResult> RunTestAsync(string portName, CancellationToken token)
+    {
+        var response = await SendCommandAsync(portName, "TEST_RUN", TimeSpan.FromSeconds(30), token);
         if (response == null)
         {
             return new DeviceTestResult { Success = false, Skipped = true, Message = "デバイス側テスト未実装の可能性" };
@@ -175,7 +207,12 @@ public class SerialService
         return ParseTestResult(response);
     }
 
-    public async Task<string> DumpLogAsync(string portName)
+    public Task<string> DumpLogAsync(string portName)
+    {
+        return DumpLogAsync(portName, CancellationToken.None);
+    }
+
+    public async Task<string> DumpLogAsync(string portName, CancellationToken token)
     {
         try
         {
@@ -199,7 +236,8 @@ public class SerialService
 
             while (DateTime.UtcNow < hardLimit)
             {
-                var line = await ReadLineAsync(reader, TimeSpan.FromMilliseconds(500));
+                token.ThrowIfCancellationRequested();
+                var line = await ReadLineAsync(reader, TimeSpan.FromMilliseconds(500), token);
                 if (line == null)
                 {
                     if (DateTime.UtcNow - lastRead > TimeSpan.FromSeconds(1))
@@ -228,7 +266,7 @@ public class SerialService
         }
     }
 
-    private async Task<string?> SendCommandAsync(string portName, string command, TimeSpan timeout)
+    private async Task<string?> SendCommandAsync(string portName, string command, TimeSpan timeout, CancellationToken token)
     {
         var trace = new StringBuilder();
         trace.AppendLine("=== serial command ===");
@@ -236,7 +274,7 @@ public class SerialService
         trace.AppendLine($"port: {portName}");
         trace.AppendLine($"baud: {BaudRate}");
         trace.AppendLine($"timeout_ms: {(int)timeout.TotalMilliseconds}");
-        trace.AppendLine($"command: {command}");
+        trace.AppendLine($"command: {RedactCommand(command)}");
         SerialPort? serial = null;
         StreamWriter? writer = null;
         StreamReader? reader = null;
@@ -259,7 +297,7 @@ public class SerialService
             trace.AppendLine("write: ok");
             await writer.WriteLineAsync(command);
 
-            line = await ReadResponseLineAsync(reader, timeout, trace);
+            line = await ReadResponseLineAsync(reader, timeout, trace, token);
             if (line == null)
             {
                 Log.Warning("Serial timeout for {Command}", command.Split(' ')[0]);
@@ -272,6 +310,12 @@ public class SerialService
             trace.AppendLine($"read: {line}");
             await AppendSerialTraceAsync(trace);
             return line.Trim();
+        }
+        catch (OperationCanceledException)
+        {
+            trace.AppendLine("error: cancelled");
+            await AppendSerialTraceAsync(trace);
+            throw;
         }
         catch (Exception ex)
         {
@@ -290,26 +334,31 @@ public class SerialService
         }
     }
 
-    private async Task<string?> ReadLineAsync(StreamReader reader, TimeSpan timeout)
+    private async Task<string?> ReadLineAsync(StreamReader reader, TimeSpan timeout, CancellationToken token)
     {
-        using var cts = new CancellationTokenSource(timeout);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        cts.CancelAfter(timeout);
         try
         {
             return await reader.ReadLineAsync().WaitAsync(cts.Token);
         }
         catch (OperationCanceledException)
         {
+            if (token.IsCancellationRequested)
+            {
+                throw;
+            }
             return null;
         }
     }
 
-    private async Task<string?> ReadResponseLineAsync(StreamReader reader, TimeSpan timeout, StringBuilder trace)
+    private async Task<string?> ReadResponseLineAsync(StreamReader reader, TimeSpan timeout, StringBuilder trace, CancellationToken token)
     {
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
             var remaining = deadline - DateTime.UtcNow;
-            var line = await ReadLineAsync(reader, remaining);
+            var line = await ReadLineAsync(reader, remaining, token);
             if (line == null)
             {
                 return null;
@@ -434,9 +483,9 @@ public class SerialService
         }
     }
 
-    private async Task<ConfigResult> SendSetAsync(string portName, string key, string value)
+    private async Task<ConfigResult> SendSetAsync(string portName, string key, string value, CancellationToken token)
     {
-        var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(5));
+        var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(5), token);
         if (response == null)
         {
             return new ConfigResult { Success = false, Message = $"設定送信がタイムアウトしました ({key})" };
@@ -454,5 +503,35 @@ public class SerialService
         }
 
         return new ConfigResult { Success = false, Message = $"設定結果が不明です ({key})" };
+    }
+
+    private static string RedactCommand(string command)
+    {
+        if (!command.StartsWith("SET ", StringComparison.OrdinalIgnoreCase))
+        {
+            return command;
+        }
+
+        var parts = command.Split(' ', 3, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length < 3)
+        {
+            return command;
+        }
+
+        var key = parts[1];
+        if (IsSensitiveKey(key))
+        {
+            return $"{parts[0]} {parts[1]} {DeviceConfig.Mask(parts[2])}";
+        }
+
+        return command;
+    }
+
+    private static bool IsSensitiveKey(string key)
+    {
+        return key.Equals("wifi_pass", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("duco_miner_key", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("az_speech_key", StringComparison.OrdinalIgnoreCase) ||
+               key.Equals("openai_key", StringComparison.OrdinalIgnoreCase);
     }
 }

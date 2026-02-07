@@ -1,0 +1,80 @@
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Serilog;
+
+namespace AiStackchanSetup.Steps;
+
+public sealed class FlashStep : StepBase
+{
+    public override int Index => 2;
+    public override string Title => "書き込み";
+    public override string Description => "ファームウェアを書き込みます。";
+    public override string PrimaryActionText => "書き込む";
+    public override bool CanRetry => true;
+
+    public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
+    {
+        var vm = context.ViewModel;
+        if (vm.SelectedPort == null)
+        {
+            return StepResult.Fail("COMポートが未選択です", canRetry: false);
+        }
+
+        if (!File.Exists(vm.FirmwarePath))
+        {
+            return StepResult.Fail("ファームウェアファイルが見つかりません", canRetry: false);
+        }
+
+        if (!int.TryParse(vm.FlashBaud, out var baud))
+        {
+            return StepResult.Fail("Baudが不正です", canRetry: false);
+        }
+
+        vm.IsBusy = true;
+        vm.FlashStatus = "書き込み中...";
+        vm.StatusMessage = "";
+
+        try
+        {
+            var result = await context.RetryPolicy.ExecuteWithTimeoutAsync(
+                ct => context.FlashService.FlashAsync(vm.SelectedPort.PortName, baud, vm.FlashErase, vm.FirmwarePath, ct),
+                context.Timeouts.Flash,
+                maxAttempts: 1,
+                baseDelay: TimeSpan.Zero,
+                backoffFactor: 1,
+                token);
+
+            vm.LastFlashResult = result.Success ? "success" : "fail";
+
+            if (result.Success)
+            {
+                vm.FlashStatus = "書き込み完了";
+                return StepResult.Ok();
+            }
+
+            vm.FlashStatus = "書き込み失敗";
+            vm.ErrorMessage = $"書き込みに失敗しました。ログ: {result.LogPath}";
+            vm.PrimaryButtonText = "再試行";
+            return StepResult.Fail("書き込みに失敗しました", guidance: "配線やドライバを確認してください。", canRetry: true);
+        }
+        catch (OperationCanceledException)
+        {
+            vm.FlashStatus = "中止しました";
+            return StepResult.Cancelled();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Flash failed");
+            vm.ErrorMessage = $"書き込みに失敗しました。ログ: {AiStackchanSetup.Services.LogService.FlashLogPath}";
+            vm.LastError = ex.Message;
+            vm.PrimaryButtonText = "再試行";
+            return StepResult.Fail("書き込みに失敗しました", guidance: "書き込みログを確認してください。", canRetry: true);
+        }
+        finally
+        {
+            vm.IsBusy = false;
+        }
+    }
+}

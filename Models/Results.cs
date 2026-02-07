@@ -35,4 +35,5 @@ public class HelloResult
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
     public string RawJson { get; set; } = string.Empty;
+    public DeviceHelloInfo? Info { get; set; }
 }

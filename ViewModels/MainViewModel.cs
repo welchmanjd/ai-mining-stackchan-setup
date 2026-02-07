@@ -10,6 +10,7 @@ using System.Windows;
 using AiStackchanSetup.Infrastructure;
 using AiStackchanSetup.Models;
 using AiStackchanSetup.Services;
+using AiStackchanSetup.Steps;
 using Microsoft.Win32;
 using Serilog;
 
@@ -21,8 +22,13 @@ public class MainViewModel : BindableBase
     private readonly FlashService _flashService = new();
     private readonly ApiTestService _apiTestService = new();
     private readonly SupportPackService _supportPackService = new();
+    private readonly RetryPolicy _retryPolicy = new();
+    private readonly StepTimeouts _timeouts = new();
+    private readonly StepController _stepController;
+    private readonly StepContext _stepContext;
+    private CancellationTokenSource? _stepCts;
 
-    private const int TotalSteps = 8;
+    private int _totalSteps;
     private int _step = 1;
     private string _stepTitle = "接続";
     private string _primaryButtonText = "探す";
@@ -30,13 +36,16 @@ public class MainViewModel : BindableBase
     private string _statusMessage = "";
     private string _errorMessage = "";
     private string _step1Help = "";
-    private bool _isAdvanced;
+    private bool _isAdvancedPanelOpen;
+    private bool _isManualPortSelection;
 
     private SerialPortInfo? _selectedPort;
     private string _firmwarePath = ResolveDefaultFirmwarePath();
     private string _flashBaudText = "921600";
     private bool _flashErase;
     private string _flashStatus = "";
+    private string _firmwareInfoText = "";
+    private string _deviceStatusSummary = "未取得";
 
     private string _configWifiSsid = "";
     private string _configWifiPassword = "";
@@ -69,8 +78,25 @@ public class MainViewModel : BindableBase
     {
         Ports = new ObservableCollection<SerialPortInfo>();
 
+        _stepContext = new StepContext(this, _serialService, _flashService, _apiTestService, _supportPackService, _retryPolicy, _timeouts);
+        _stepController = new StepController(this, _stepContext, new IStep[]
+        {
+            new DetectPortsStep(),
+            new FlashStep(),
+            new WifiStep(),
+            new DucoStep(),
+            new AzureStep(),
+            new OpenAiConfigStep(),
+            new LogStep(),
+            new CompleteStep()
+        });
+        _totalSteps = _stepController.TotalSteps;
+
         PrimaryCommand = new AsyncRelayCommand(PrimaryAsync, () => !IsBusy);
         CloseCommand = new RelayCommand(() => Application.Current.Shutdown());
+        CancelCommand = new RelayCommand(CancelCurrent);
+        BackCommand = new RelayCommand(GoBack, () => Step > 1 && !IsBusy);
+        SkipCommand = new RelayCommand(SkipStep, () => _stepController.CanSkip && !IsBusy);
         AzureTestCommand = new AsyncRelayCommand(TestAzureAsync, () => !IsBusy);
         OpenAiTestCommand = new AsyncRelayCommand(TestOpenAiAsync, () => !IsBusy);
         DumpDeviceLogCommand = new AsyncRelayCommand(DumpDeviceLogAsync, () => !IsBusy);
@@ -79,7 +105,8 @@ public class MainViewModel : BindableBase
         OpenFlashLogCommand = new RelayCommand(OpenFlashLog);
         CreateSupportPackCommand = new AsyncRelayCommand(CreateSupportPackAsync);
 
-        UpdateStepMetadata();
+        _stepController.SyncStepMetadata();
+        FirmwareInfoText = BuildFirmwareInfoText(FirmwarePath);
     }
 
     public ObservableCollection<SerialPortInfo> Ports { get; }
@@ -91,7 +118,9 @@ public class MainViewModel : BindableBase
         {
             if (SetProperty(ref _step, value))
             {
-                UpdateStepMetadata();
+                _stepController.SyncStepMetadata();
+                BackCommand.RaiseCanExecuteChanged();
+                SkipCommand.RaiseCanExecuteChanged();
                 RaisePropertyChanged(nameof(StepIndicator));
             }
         }
@@ -103,7 +132,7 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _stepTitle, value);
     }
 
-    public string StepIndicator => $"{Step}/{TotalSteps}";
+    public string StepIndicator => $"{Step}/{_totalSteps}";
 
     public string PrimaryButtonText
     {
@@ -122,9 +151,14 @@ public class MainViewModel : BindableBase
                 ((AsyncRelayCommand)AzureTestCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)OpenAiTestCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)DumpDeviceLogCommand).RaiseCanExecuteChanged();
+                BackCommand.RaiseCanExecuteChanged();
+                SkipCommand.RaiseCanExecuteChanged();
+                RaisePropertyChanged(nameof(CanCancel));
             }
         }
     }
+
+    public bool CanCancel => IsBusy && _stepCts != null;
 
     public string StatusMessage
     {
@@ -144,10 +178,16 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _step1Help, value);
     }
 
-    public bool IsAdvanced
+    public bool IsAdvancedPanelOpen
     {
-        get => _isAdvanced;
-        set => SetProperty(ref _isAdvanced, value);
+        get => _isAdvancedPanelOpen;
+        set => SetProperty(ref _isAdvancedPanelOpen, value);
+    }
+
+    public bool IsManualPortSelection
+    {
+        get => _isManualPortSelection;
+        set => SetProperty(ref _isManualPortSelection, value);
     }
 
     public SerialPortInfo? SelectedPort
@@ -159,7 +199,19 @@ public class MainViewModel : BindableBase
     public string FirmwarePath
     {
         get => _firmwarePath;
-        set => SetProperty(ref _firmwarePath, value);
+        set
+        {
+            if (SetProperty(ref _firmwarePath, value))
+            {
+                FirmwareInfoText = BuildFirmwareInfoText(value);
+            }
+        }
+    }
+
+    public string FirmwareInfoText
+    {
+        get => _firmwareInfoText;
+        set => SetProperty(ref _firmwareInfoText, value);
     }
 
     public string FlashBaud
@@ -178,6 +230,12 @@ public class MainViewModel : BindableBase
     {
         get => _flashStatus;
         set => SetProperty(ref _flashStatus, value);
+    }
+
+    public string DeviceStatusSummary
+    {
+        get => _deviceStatusSummary;
+        set => SetProperty(ref _deviceStatusSummary, value);
     }
 
     public string FlashLogPath => LogService.FlashLogPath;
@@ -288,7 +346,34 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _deviceTestSummary, value);
     }
 
+    public string LastFlashResult
+    {
+        get => _lastFlashResult;
+        set => _lastFlashResult = value;
+    }
+
+    public string LastApiResult
+    {
+        get => _lastApiResult;
+        set => _lastApiResult = value;
+    }
+
+    public string LastDeviceResult
+    {
+        get => _lastDeviceResult;
+        set => _lastDeviceResult = value;
+    }
+
+    public string LastError
+    {
+        get => _lastError;
+        set => _lastError = value;
+    }
+
     public RelayCommand CloseCommand { get; }
+    public RelayCommand CancelCommand { get; }
+    public RelayCommand BackCommand { get; }
+    public RelayCommand SkipCommand { get; }
     public AsyncRelayCommand PrimaryCommand { get; }
     public AsyncRelayCommand AzureTestCommand { get; }
     public AsyncRelayCommand OpenAiTestCommand { get; }
@@ -301,209 +386,69 @@ public class MainViewModel : BindableBase
     private async Task PrimaryAsync()
     {
         ErrorMessage = "";
+        _stepCts?.Dispose();
+        _stepCts = new CancellationTokenSource();
+        RaisePropertyChanged(nameof(CanCancel));
 
-        switch (Step)
-        {
-            case 1:
-                await DetectPortsAsync();
-                break;
-            case 2:
-                await FlashAsync();
-                break;
-            case 3:
-                ValidateWifiStep();
-                break;
-            case 4:
-                Step = 5;
-                break;
-            case 5:
-                Step = 6;
-                break;
-            case 6:
-                await SendConfigAsync();
-                break;
-            case 7:
-                Step = 8;
-                break;
-            case 8:
-                Application.Current.Shutdown();
-                break;
-        }
-    }
-
-    private void ValidateWifiStep()
-    {
-        if (string.IsNullOrWhiteSpace(ConfigWifiSsid) || string.IsNullOrWhiteSpace(ConfigWifiPassword))
-        {
-            ErrorMessage = "Wi-Fi情報が未入力です";
-            return;
-        }
-
-        Step = 4;
-    }
-
-    private async Task DetectPortsAsync()
-    {
-        IsBusy = true;
-        StatusMessage = "USBポートを探しています...";
-        Step1Help = "";
-
+        StepResult result;
         try
         {
-            Ports.Clear();
-            var ports = await _serialService.DetectPortsAsync();
-            foreach (var port in ports)
-            {
-                Ports.Add(port);
-            }
-
-            SelectedPort = _serialService.SelectBestPort(Ports);
-
-            if (SelectedPort == null)
-            {
-                Step1Help = "見つかりません。充電専用ケーブル/USBポート/ドライバを確認してください。";
-                StatusMessage = "未検出";
-            }
-            else
-            {
-                StatusMessage = $"{SelectedPort.DisplayName} を検出";
-                Step = 2;
-            }
+            result = await _stepController.ExecuteCurrentAsync(_stepCts.Token);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            Log.Error(ex, "Detect ports failed");
-            ErrorMessage = "ポート検出に失敗しました";
-            _lastError = ex.Message;
+            result = StepResult.Cancelled();
         }
         finally
         {
-            IsBusy = false;
+            _stepCts.Dispose();
+            _stepCts = null;
+            RaisePropertyChanged(nameof(CanCancel));
         }
-    }
 
-    private async Task FlashAsync()
-    {
-        if (SelectedPort == null)
+        if (result.Status == StepStatus.Success || result.Status == StepStatus.Skipped)
         {
-            ErrorMessage = "COMポートが未選択です";
+            _stepController.MoveNext();
+            _stepController.SyncStepMetadata();
             return;
         }
 
-        if (!File.Exists(FirmwarePath))
+        if (result.Status == StepStatus.Cancelled)
         {
-            ErrorMessage = "ファームウェアファイルが見つかりません";
+            StatusMessage = "中止しました";
             return;
         }
 
-        if (!int.TryParse(FlashBaud, out var baud))
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
         {
-            ErrorMessage = "Baudが不正です";
-            return;
+            ErrorMessage = result.ErrorMessage;
         }
 
-        IsBusy = true;
-        FlashStatus = "書き込み中...";
-        StatusMessage = "";
-
-        try
+        if (result.CanRetry)
         {
-            var result = await _flashService.FlashAsync(SelectedPort.PortName, baud, FlashErase, FirmwarePath, CancellationToken.None);
-            _lastFlashResult = result.Success ? "success" : "fail";
-
-            if (result.Success)
-            {
-                FlashStatus = "書き込み完了";
-                Step = 3;
-            }
-            else
-            {
-                FlashStatus = "書き込み失敗";
-                ErrorMessage = $"書き込みに失敗しました。ログ: {result.LogPath}";
-                PrimaryButtonText = "再試行";
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Flash failed");
-            ErrorMessage = $"書き込みに失敗しました。ログ: {LogService.FlashLogPath}";
-            _lastError = ex.Message;
             PrimaryButtonText = "再試行";
         }
-        finally
-        {
-            IsBusy = false;
-        }
     }
 
-    private async Task SendConfigAsync()
+    private void CancelCurrent()
     {
-        if (SelectedPort == null)
-        {
-            ErrorMessage = "COMポートが未選択です";
-            return;
-        }
+        _stepCts?.Cancel();
+    }
 
-        if (string.IsNullOrWhiteSpace(ConfigOpenAiKey))
-        {
-            ErrorMessage = "OpenAI APIキーが未入力です";
-            return;
-        }
+    private void GoBack()
+    {
+        _stepController.MovePrevious();
+        _stepController.SyncStepMetadata();
+        BackCommand.RaiseCanExecuteChanged();
+        SkipCommand.RaiseCanExecuteChanged();
+    }
 
-        IsBusy = true;
-        StatusMessage = "デバイスに設定を送信中...";
-
-        try
-        {
-            var hello = await _serialService.HelloAsync(SelectedPort.PortName);
-            if (!hello.Success)
-            {
-                ErrorMessage = hello.Message;
-                _lastError = hello.Message;
-                return;
-            }
-
-            var config = new DeviceConfig
-            {
-                WifiSsid = ConfigWifiSsid,
-                WifiPassword = ConfigWifiPassword,
-                DucoUser = DucoUser,
-                DucoMinerKey = DucoMinerKey,
-                OpenAiKey = ConfigOpenAiKey,
-                AzureKey = AzureKey,
-                AzureRegion = AzureRegion,
-                AzureCustomSubdomain = AzureCustomSubdomain
-            };
-
-            var setResult = await _serialService.SendConfigAsync(SelectedPort.PortName, config);
-            if (!setResult.Success)
-            {
-                ErrorMessage = $"設定送信失敗: {setResult.Message}";
-                _lastError = setResult.Message;
-                return;
-            }
-
-            var applyResult = await _serialService.ApplyConfigAsync(SelectedPort.PortName);
-            if (!applyResult.Success)
-            {
-                ErrorMessage = $"設定適用失敗: {applyResult.Message}";
-                _lastError = applyResult.Message;
-                return;
-            }
-
-            StatusMessage = "設定送信完了";
-            Step = 7;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Send config failed");
-            ErrorMessage = "設定送信に失敗しました";
-            _lastError = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+    private void SkipStep()
+    {
+        _stepController.Skip();
+        _stepController.SyncStepMetadata();
+        BackCommand.RaiseCanExecuteChanged();
+        SkipCommand.RaiseCanExecuteChanged();
     }
 
     private async Task RunTestsAsync()
@@ -523,7 +468,13 @@ public class MainViewModel : BindableBase
             ApiTestResult? apiResult = null;
             if (!openAiOk)
             {
-                apiResult = await _apiTestService.TestAsync(ConfigOpenAiKey, CancellationToken.None);
+                apiResult = await _retryPolicy.ExecuteWithTimeoutAsync(
+                    ct => _apiTestService.TestAsync(ConfigOpenAiKey, ct),
+                    TimeSpan.FromSeconds(25),
+                    maxAttempts: 3,
+                    baseDelay: TimeSpan.FromMilliseconds(400),
+                    backoffFactor: 2,
+                    CancellationToken.None);
                 ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
                 _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
                 if (apiResult.Success)
@@ -550,7 +501,13 @@ public class MainViewModel : BindableBase
             }
             else if (!azureOk)
             {
-                azureResult = await _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, CancellationToken.None);
+                azureResult = await _retryPolicy.ExecuteWithTimeoutAsync(
+                    ct => _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, ct),
+                    TimeSpan.FromSeconds(25),
+                    maxAttempts: 3,
+                    baseDelay: TimeSpan.FromMilliseconds(400),
+                    backoffFactor: 2,
+                    CancellationToken.None);
                 if (azureResult.Message == "未入力")
                 {
                     AzureTestSummary = "未入力";
@@ -576,7 +533,13 @@ public class MainViewModel : BindableBase
             }
 
             // Stub: 端末側TEST_RUN未実装の場合はSkippedとして扱う
-            var deviceResult = await _serialService.RunTestAsync(SelectedPort.PortName);
+            var deviceResult = await _retryPolicy.ExecuteWithTimeoutAsync(
+                ct => _serialService.RunTestAsync(SelectedPort.PortName, ct),
+                TimeSpan.FromSeconds(30),
+                maxAttempts: 2,
+                baseDelay: TimeSpan.FromMilliseconds(400),
+                backoffFactor: 2,
+                CancellationToken.None);
             if (deviceResult.Skipped)
             {
                 DeviceTestSummary = "未実装の可能性";
@@ -619,7 +582,13 @@ public class MainViewModel : BindableBase
 
         try
         {
-            var azureResult = await _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, CancellationToken.None);
+            var azureResult = await _retryPolicy.ExecuteWithTimeoutAsync(
+                ct => _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, ct),
+                TimeSpan.FromSeconds(25),
+                maxAttempts: 3,
+                baseDelay: TimeSpan.FromMilliseconds(400),
+                backoffFactor: 2,
+                CancellationToken.None);
             if (azureResult.Message == "未入力")
             {
                 AzureTestSummary = "未入力";
@@ -659,7 +628,13 @@ public class MainViewModel : BindableBase
 
         try
         {
-            var apiResult = await _apiTestService.TestAsync(ConfigOpenAiKey, CancellationToken.None);
+            var apiResult = await _retryPolicy.ExecuteWithTimeoutAsync(
+                ct => _apiTestService.TestAsync(ConfigOpenAiKey, ct),
+                TimeSpan.FromSeconds(25),
+                maxAttempts: 3,
+                baseDelay: TimeSpan.FromMilliseconds(400),
+                backoffFactor: 2,
+                CancellationToken.None);
             ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
             _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
             if (apiResult.Success)
@@ -703,7 +678,9 @@ public class MainViewModel : BindableBase
             }
 
             Directory.CreateDirectory(LogService.LogDirectory);
-            await File.WriteAllTextAsync(LogService.DeviceLogPath, deviceLog);
+            var config = BuildDeviceConfig();
+            var sanitized = SensitiveDataRedactor.Redact(deviceLog, config);
+            await File.WriteAllTextAsync(LogService.DeviceLogPath, sanitized);
             StatusMessage = $"デバイスログを保存しました: {LogService.DeviceLogPath}";
         }
         catch (Exception ex)
@@ -781,31 +758,42 @@ public class MainViewModel : BindableBase
         }
     }
 
+    private DeviceConfig BuildDeviceConfig()
+    {
+        return new DeviceConfig
+        {
+            WifiSsid = ConfigWifiSsid,
+            WifiPassword = ConfigWifiPassword,
+            DucoUser = DucoUser,
+            DucoMinerKey = DucoMinerKey,
+            OpenAiKey = ConfigOpenAiKey,
+            AzureKey = AzureKey,
+            AzureRegion = AzureRegion,
+            AzureCustomSubdomain = AzureCustomSubdomain
+        };
+    }
+
     private async Task CreateSupportPackAsync()
     {
         try
         {
+            var config = BuildDeviceConfig();
+
             var summary = new SupportSummary
             {
                 AppVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown",
+                DotNetVersion = Environment.Version.ToString(),
                 OsVersion = Environment.OSVersion.ToString(),
+                AppBaseDirectory = AppContext.BaseDirectory,
+                FirmwarePath = FirmwarePath,
+                FirmwareInfo = FirmwareInfoText,
                 DetectedPorts = string.Join(",", Ports.Select(p => p.PortName)),
                 SelectedPort = SelectedPort?.PortName ?? "",
                 FlashResult = _lastFlashResult,
                 ApiTest = _lastApiResult,
                 DeviceTest = _lastDeviceResult,
                 LastError = _lastError,
-                Config = new DeviceConfig
-                {
-                    WifiSsid = ConfigWifiSsid,
-                    WifiPassword = ConfigWifiPassword,
-                    DucoUser = DucoUser,
-                    DucoMinerKey = DucoMinerKey,
-                    OpenAiKey = ConfigOpenAiKey,
-                    AzureKey = AzureKey,
-                    AzureRegion = AzureRegion,
-                    AzureCustomSubdomain = AzureCustomSubdomain
-                }.ToMasked()
+                Config = config.ToMasked()
             };
 
             var deviceLog = SelectedPort != null
@@ -813,10 +801,11 @@ public class MainViewModel : BindableBase
                 : string.Empty;
             if (!string.IsNullOrWhiteSpace(deviceLog))
             {
-                await File.WriteAllTextAsync(LogService.DeviceLogPath, deviceLog);
+                var sanitized = SensitiveDataRedactor.Redact(deviceLog, config);
+                await File.WriteAllTextAsync(LogService.DeviceLogPath, sanitized);
             }
 
-            var zipPath = await _supportPackService.CreateSupportPackAsync(summary);
+            var zipPath = await _supportPackService.CreateSupportPackAsync(summary, config);
             StatusMessage = $"サポート用ログを作成: {zipPath}";
         }
         catch (Exception ex)
@@ -826,49 +815,20 @@ public class MainViewModel : BindableBase
         }
     }
 
-    private void UpdateStepMetadata()
-    {
-        switch (Step)
-        {
-            case 1:
-                StepTitle = "接続";
-                PrimaryButtonText = "探す";
-                break;
-            case 2:
-                StepTitle = "書き込み";
-                PrimaryButtonText = "書き込む";
-                break;
-            case 3:
-                StepTitle = "Wi-Fi";
-                PrimaryButtonText = "次へ";
-                break;
-            case 4:
-                StepTitle = "Duino-coin";
-                PrimaryButtonText = "次へ";
-                break;
-            case 5:
-                StepTitle = "Azure";
-                PrimaryButtonText = "次へ";
-                break;
-            case 6:
-                StepTitle = "OpenAI";
-                PrimaryButtonText = "保存してデバイスに送る";
-                break;
-            case 7:
-                StepTitle = "ログ";
-                PrimaryButtonText = "完了へ";
-                break;
-            case 8:
-                StepTitle = "完了";
-                PrimaryButtonText = "閉じる";
-                break;
-        }
-    }
-
     private static string ResolveDefaultFirmwarePath()
     {
-        var externalRoot = @"C:\Users\welch\Documents\PlatformIO\Projects\mining-stackchan-setup\firmware";
-        var externalPath = Path.Combine(externalRoot, "stackchan_core2.bin");
-        return externalPath;
+        var baseDir = AppContext.BaseDirectory;
+        return Path.Combine(baseDir, "Resources", "firmware", "stackchan_core2.bin");
+    }
+
+    private static string BuildFirmwareInfoText(string path)
+    {
+        var info = FirmwareInfo.FromFile(path);
+        if (info == null)
+        {
+            return "未検出";
+        }
+
+        return $"size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
     }
 }
