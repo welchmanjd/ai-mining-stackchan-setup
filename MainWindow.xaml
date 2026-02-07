@@ -83,13 +83,25 @@
                                     <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
                                     <TextBlock Text="{Binding MaskedOpenAiKey, StringFormat=入力済み: {0}}" FontSize="12" Foreground="#6B7280" />
                                 </StackPanel>
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="Duino-coin アカウント名" />
+                                    <TextBox Text="{Binding DucoUser}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="Duino-coin マイナーキー" />
+                                    <PasswordBox x:Name="DucoMinerKeyBox" PasswordChanged="DucoMinerKeyBox_OnPasswordChanged" />
+                                </StackPanel>
 
                                 <Expander Header="詳細 (Advanced)">
                                     <StackPanel>
                                         <CheckBox Content="このPCに保存 (未実装)" IsChecked="{Binding SaveToPc}" IsEnabled="False" Margin="0,0,0,6" />
-                                        <TextBlock Text="Azure STT/TTS (今後)" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                        <TextBox Text="{Binding AzureKey}" IsEnabled="False" Margin="0,0,0,4" />
-                                        <TextBox Text="{Binding AzureRegion}" IsEnabled="False" />
+                                        <TextBlock Text="Azure Speech" FontWeight="SemiBold" Margin="0,0,0,4" />
+                                        <TextBlock Text="REGION" />
+                                        <TextBox Text="{Binding AzureRegion}" Margin="0,0,0,4" />
+                                        <TextBlock Text="SPEECH_KEY" />
+                                        <PasswordBox x:Name="AzureKeyBox" PasswordChanged="AzureKeyBox_OnPasswordChanged" Margin="0,0,0,4" />
+                                        <TextBlock Text="CUSTOM_SUBDOMAIN" />
+                                        <TextBox Text="{Binding AzureCustomSubdomain}" />
                                     </StackPanel>
                                 </Expander>
                             </StackPanel>
@@ -97,6 +109,7 @@
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=4}">
                                 <TextBlock Text="API接続とデバイス動作のテストを行います。" Margin="0,0,0,8" />
                                 <TextBlock Text="{Binding ApiTestSummary, StringFormat=APIテスト: {0}}" Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azureテスト: {0}}" Margin="0,0,0,6" />
                                 <TextBlock Text="{Binding DeviceTestSummary, StringFormat=デバイステスト: {0}}" Margin="0,0,0,8" />
 
                                 <Expander Header="詳細 (Advanced)">

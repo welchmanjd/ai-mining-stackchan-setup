@@ -87,6 +87,18 @@ public class SerialService
             if (!result.Success) return result;
         }
 
+        if (!string.IsNullOrWhiteSpace(config.DucoUser))
+        {
+            var result = await SendSetAsync(portName, "duco_user", config.DucoUser);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.DucoMinerKey))
+        {
+            var result = await SendSetAsync(portName, "duco_miner_key", config.DucoMinerKey);
+            if (!result.Success) return result;
+        }
+
         if (!string.IsNullOrWhiteSpace(config.AzureRegion))
         {
             var result = await SendSetAsync(portName, "az_speech_region", config.AzureRegion);
@@ -96,6 +108,12 @@ public class SerialService
         if (!string.IsNullOrWhiteSpace(config.AzureKey))
         {
             var result = await SendSetAsync(portName, "az_speech_key", config.AzureKey);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.AzureCustomSubdomain))
+        {
+            var result = await SendSetAsync(portName, "az_custom_subdomain", config.AzureCustomSubdomain);
             if (!result.Success) return result;
         }
 

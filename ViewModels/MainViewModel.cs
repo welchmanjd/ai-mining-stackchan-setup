@@ -39,14 +39,18 @@ public class MainViewModel : BindableBase
 
     private string _configWifiSsid = "";
     private string _configWifiPassword = "";
+    private string _ducoUser = "";
+    private string _ducoMinerKey = "";
     private string _configOpenAiKey = "";
     private string _maskedOpenAiKey = "";
     // Stub: PC保存とAzure連携はv1では未実装（UIのみ）
     private bool _saveToPc;
     private string _azureKey = "";
     private string _azureRegion = "";
+    private string _azureCustomSubdomain = "";
 
     private string _apiTestSummary = "未実行";
+    private string _azureTestSummary = "未実行";
     private string _deviceTestSummary = "未実行";
 
     private string _lastFlashResult = "";
@@ -177,6 +181,18 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _configWifiPassword, value);
     }
 
+    public string DucoUser
+    {
+        get => _ducoUser;
+        set => SetProperty(ref _ducoUser, value);
+    }
+
+    public string DucoMinerKey
+    {
+        get => _ducoMinerKey;
+        set => SetProperty(ref _ducoMinerKey, value);
+    }
+
     public string ConfigOpenAiKey
     {
         get => _configOpenAiKey;
@@ -213,10 +229,22 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _azureRegion, value);
     }
 
+    public string AzureCustomSubdomain
+    {
+        get => _azureCustomSubdomain;
+        set => SetProperty(ref _azureCustomSubdomain, value);
+    }
+
     public string ApiTestSummary
     {
         get => _apiTestSummary;
         set => SetProperty(ref _apiTestSummary, value);
+    }
+
+    public string AzureTestSummary
+    {
+        get => _azureTestSummary;
+        set => SetProperty(ref _azureTestSummary, value);
     }
 
     public string DeviceTestSummary
@@ -387,9 +415,12 @@ public class MainViewModel : BindableBase
             {
                 WifiSsid = ConfigWifiSsid,
                 WifiPassword = ConfigWifiPassword,
+                DucoUser = DucoUser,
+                DucoMinerKey = DucoMinerKey,
                 OpenAiKey = ConfigOpenAiKey,
                 AzureKey = AzureKey,
-                AzureRegion = AzureRegion
+                AzureRegion = AzureRegion,
+                AzureCustomSubdomain = AzureCustomSubdomain
             };
 
             var setResult = await _serialService.SendConfigAsync(SelectedPort.PortName, config);
@@ -440,6 +471,16 @@ public class MainViewModel : BindableBase
             ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
             _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
 
+            var azureResult = await _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, CancellationToken.None);
+            if (azureResult.Message == "未入力")
+            {
+                AzureTestSummary = "未入力";
+            }
+            else
+            {
+                AzureTestSummary = azureResult.Success ? "OK" : azureResult.Message;
+            }
+
             // Stub: 端末側TEST_RUN未実装の場合はSkippedとして扱う
             var deviceResult = await _serialService.RunTestAsync(SelectedPort.PortName);
             if (deviceResult.Skipped)
@@ -453,7 +494,8 @@ public class MainViewModel : BindableBase
                 _lastDeviceResult = deviceResult.Success ? "success" : deviceResult.Message;
             }
 
-            if (apiResult.Success && (deviceResult.Success || deviceResult.Skipped))
+            var azureOk = azureResult.Success || azureResult.Message == "未入力";
+            if (apiResult.Success && azureOk && (deviceResult.Success || deviceResult.Skipped))
             {
                 StatusMessage = "テスト完了";
                 Step = 5;
@@ -548,9 +590,12 @@ public class MainViewModel : BindableBase
                 {
                     WifiSsid = ConfigWifiSsid,
                     WifiPassword = ConfigWifiPassword,
+                    DucoUser = DucoUser,
+                    DucoMinerKey = DucoMinerKey,
                     OpenAiKey = ConfigOpenAiKey,
                     AzureKey = AzureKey,
-                    AzureRegion = AzureRegion
+                    AzureRegion = AzureRegion,
+                    AzureCustomSubdomain = AzureCustomSubdomain
                 }.ToMasked()
             };
 
