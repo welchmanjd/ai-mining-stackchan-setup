@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "StackchanSetupTool/1.0.0": {
+        "runtime": {
+          "StackchanSetupTool.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "StackchanSetupTool/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
