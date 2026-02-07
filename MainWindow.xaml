@@ -12,7 +12,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="M5Stack Core2 AIスタックチャン セットアップ" FontSize="20" FontWeight="SemiBold" />
-            <TextBlock Text="知識ゼロでも迷わず進める 5ステップ" Foreground="#6B7280" />
+            <TextBlock Text="知識ゼロでも迷わず進める 8ステップ" Foreground="#6B7280" />
             <TextBlock Text="{Binding StepIndicator, StringFormat=ステップ: {0}}" FontWeight="SemiBold" Margin="0,8,0,0" />
         </StackPanel>
 
@@ -35,6 +35,7 @@
                                           SelectedItem="{Binding SelectedPort}"
                                           DisplayMemberPath="DisplayName"
                                           IsEnabled="{Binding IsAdvanced}"
+                                          Visibility="{Binding IsAdvanced, Converter={StaticResource BoolToVisibility}}"
                                           Margin="0,0,0,8" />
 
                                 <TextBlock Text="{Binding Step1Help}" Foreground="#B45309" Margin="0,0,0,8" />
@@ -69,7 +70,7 @@
                             </StackPanel>
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=3}">
-                                <TextBlock Text="Wi-FiとAPIキーを設定します。" Margin="0,0,0,8" />
+                                <TextBlock Text="Wi-Fiを設定します。" Margin="0,0,0,8" />
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="Wi-Fi SSID" />
                                     <TextBox Text="{Binding ConfigWifiSsid}" />
@@ -78,11 +79,10 @@
                                     <TextBlock Text="Wi-Fi パスワード" />
                                     <PasswordBox x:Name="WifiPasswordBox" PasswordChanged="WifiPasswordBox_OnPasswordChanged" />
                                 </StackPanel>
-                                <StackPanel Margin="0,0,0,8">
-                                    <TextBlock Text="OpenAI APIキー" />
-                                    <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
-                                    <TextBlock Text="{Binding MaskedOpenAiKey, StringFormat=入力済み: {0}}" FontSize="12" Foreground="#6B7280" />
-                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=4}">
+                                <TextBlock Text="Duino-coinを設定します。" Margin="0,0,0,8" />
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="Duino-coin アカウント名" />
                                     <TextBox Text="{Binding DucoUser}" />
@@ -91,36 +91,57 @@
                                     <TextBlock Text="Duino-coin マイナーキー" />
                                     <PasswordBox x:Name="DucoMinerKeyBox" PasswordChanged="DucoMinerKeyBox_OnPasswordChanged" />
                                 </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=5}">
+                                <TextBlock Text="Azure Speechを設定します。" Margin="0,0,0,8" />
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="REGION" />
+                                    <TextBox Text="{Binding AzureRegion}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="SPEECH_KEY" />
+                                    <PasswordBox x:Name="AzureKeyBox" PasswordChanged="AzureKeyBox_OnPasswordChanged" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="CUSTOM_SUBDOMAIN" />
+                                    <TextBox Text="{Binding AzureCustomSubdomain}" />
+                                </StackPanel>
+                                <Button Content="Azureキーを確認"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding AzureTestCommand}" />
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=6}">
+                                <TextBlock Text="OpenAI APIキーを設定します。" Margin="0,0,0,8" />
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="OpenAI APIキー" />
+                                    <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
+                                    <TextBlock Text="{Binding MaskedOpenAiKey, StringFormat=入力済み: {0}}" FontSize="12" Foreground="#6B7280" />
+                                </StackPanel>
+                                <Button Content="OpenAIキーを確認"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding OpenAiTestCommand}" />
 
                                 <Expander Header="詳細 (Advanced)">
                                     <StackPanel>
                                         <CheckBox Content="このPCに保存 (未実装)" IsChecked="{Binding SaveToPc}" IsEnabled="False" Margin="0,0,0,6" />
-                                        <TextBlock Text="Azure Speech" FontWeight="SemiBold" Margin="0,0,0,4" />
-                                        <TextBlock Text="REGION" />
-                                        <TextBox Text="{Binding AzureRegion}" Margin="0,0,0,4" />
-                                        <TextBlock Text="SPEECH_KEY" />
-                                        <PasswordBox x:Name="AzureKeyBox" PasswordChanged="AzureKeyBox_OnPasswordChanged" Margin="0,0,0,4" />
-                                        <TextBlock Text="CUSTOM_SUBDOMAIN" />
-                                        <TextBox Text="{Binding AzureCustomSubdomain}" />
                                     </StackPanel>
                                 </Expander>
                             </StackPanel>
 
-                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=4}">
-                                <TextBlock Text="API接続とデバイス動作のテストを行います。" Margin="0,0,0,8" />
-                                <TextBlock Text="{Binding ApiTestSummary, StringFormat=APIテスト: {0}}" Margin="0,0,0,6" />
-                                <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azureテスト: {0}}" Margin="0,0,0,6" />
-                                <TextBlock Text="{Binding DeviceTestSummary, StringFormat=デバイステスト: {0}}" Margin="0,0,0,8" />
-
-                                <Expander Header="詳細 (Advanced)">
-                                    <StackPanel>
-                                        <Button Content="ネットワークのみテスト (未実装)" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="False" Margin="0,0,0,6" />
-                                        <Button Content="OpenAIのみテスト (未実装)" Style="{StaticResource SecondaryButtonStyle}" IsEnabled="False" />
-                                    </StackPanel>
-                                </Expander>
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=7}">
+                                <TextBlock Text="必要ならデバイスログを取得してください (任意)。" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azure: {0}}" Margin="0,0,0,12" />
+                                <Button Content="デバイスログを取得"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding DumpDeviceLogCommand}"
+                                        Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding DeviceLogPath}" FontSize="12" Foreground="#6B7280" TextWrapping="Wrap" />
                             </StackPanel>
 
-                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=5}">
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=8}">
                                 <TextBlock Text="セットアップ完了!" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8" />
                                 <TextBlock Text="M5Stack Core2 を再起動すると AIスタックチャンが動きます。" Margin="0,0,0,6" />
                                 <TextBlock Text="困ったらサポート用ログを作成してください。" Margin="0,0,0,12" />

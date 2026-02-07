@@ -22,6 +22,7 @@ public class MainViewModel : BindableBase
     private readonly ApiTestService _apiTestService = new();
     private readonly SupportPackService _supportPackService = new();
 
+    private const int TotalSteps = 8;
     private int _step = 1;
     private string _stepTitle = "接続";
     private string _primaryButtonText = "探す";
@@ -57,6 +58,12 @@ public class MainViewModel : BindableBase
     private string _lastApiResult = "";
     private string _lastDeviceResult = "";
     private string _lastError = "";
+    private string _openAiTestedKey = "";
+    private bool _openAiTestedOk;
+    private string _azureTestedKey = "";
+    private string _azureTestedRegion = "";
+    private string _azureTestedSubdomain = "";
+    private bool _azureTestedOk;
 
     public MainViewModel()
     {
@@ -64,6 +71,9 @@ public class MainViewModel : BindableBase
 
         PrimaryCommand = new AsyncRelayCommand(PrimaryAsync, () => !IsBusy);
         CloseCommand = new RelayCommand(() => Application.Current.Shutdown());
+        AzureTestCommand = new AsyncRelayCommand(TestAzureAsync, () => !IsBusy);
+        OpenAiTestCommand = new AsyncRelayCommand(TestOpenAiAsync, () => !IsBusy);
+        DumpDeviceLogCommand = new AsyncRelayCommand(DumpDeviceLogAsync, () => !IsBusy);
         BrowseFirmwareCommand = new RelayCommand(BrowseFirmware);
         OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
         OpenFlashLogCommand = new RelayCommand(OpenFlashLog);
@@ -93,7 +103,7 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _stepTitle, value);
     }
 
-    public string StepIndicator => $"{Step}/5";
+    public string StepIndicator => $"{Step}/{TotalSteps}";
 
     public string PrimaryButtonText
     {
@@ -109,6 +119,9 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _isBusy, value))
             {
                 ((AsyncRelayCommand)PrimaryCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)AzureTestCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)OpenAiTestCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)DumpDeviceLogCommand).RaiseCanExecuteChanged();
             }
         }
     }
@@ -168,6 +181,7 @@ public class MainViewModel : BindableBase
     }
 
     public string FlashLogPath => LogService.FlashLogPath;
+    public string DeviceLogPath => LogService.DeviceLogPath;
 
     public string ConfigWifiSsid
     {
@@ -201,6 +215,9 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _configOpenAiKey, value))
             {
                 MaskedOpenAiKey = DeviceConfig.Mask(value);
+                _openAiTestedKey = "";
+                _openAiTestedOk = false;
+                ApiTestSummary = "未実行";
             }
         }
     }
@@ -220,19 +237,37 @@ public class MainViewModel : BindableBase
     public string AzureKey
     {
         get => _azureKey;
-        set => SetProperty(ref _azureKey, value);
+        set
+        {
+            if (SetProperty(ref _azureKey, value))
+            {
+                ResetAzureTestState();
+            }
+        }
     }
 
     public string AzureRegion
     {
         get => _azureRegion;
-        set => SetProperty(ref _azureRegion, value);
+        set
+        {
+            if (SetProperty(ref _azureRegion, value))
+            {
+                ResetAzureTestState();
+            }
+        }
     }
 
     public string AzureCustomSubdomain
     {
         get => _azureCustomSubdomain;
-        set => SetProperty(ref _azureCustomSubdomain, value);
+        set
+        {
+            if (SetProperty(ref _azureCustomSubdomain, value))
+            {
+                ResetAzureTestState();
+            }
+        }
     }
 
     public string ApiTestSummary
@@ -255,6 +290,9 @@ public class MainViewModel : BindableBase
 
     public RelayCommand CloseCommand { get; }
     public AsyncRelayCommand PrimaryCommand { get; }
+    public AsyncRelayCommand AzureTestCommand { get; }
+    public AsyncRelayCommand OpenAiTestCommand { get; }
+    public AsyncRelayCommand DumpDeviceLogCommand { get; }
     public RelayCommand BrowseFirmwareCommand { get; }
     public RelayCommand OpenLogFolderCommand { get; }
     public RelayCommand OpenFlashLogCommand { get; }
@@ -273,15 +311,35 @@ public class MainViewModel : BindableBase
                 await FlashAsync();
                 break;
             case 3:
-                await SendConfigAsync();
+                ValidateWifiStep();
                 break;
             case 4:
-                await RunTestsAsync();
+                Step = 5;
                 break;
             case 5:
+                Step = 6;
+                break;
+            case 6:
+                await SendConfigAsync();
+                break;
+            case 7:
+                Step = 8;
+                break;
+            case 8:
                 Application.Current.Shutdown();
                 break;
         }
+    }
+
+    private void ValidateWifiStep()
+    {
+        if (string.IsNullOrWhiteSpace(ConfigWifiSsid) || string.IsNullOrWhiteSpace(ConfigWifiPassword))
+        {
+            ErrorMessage = "Wi-Fi情報が未入力です";
+            return;
+        }
+
+        Step = 4;
     }
 
     private async Task DetectPortsAsync()
@@ -386,12 +444,6 @@ public class MainViewModel : BindableBase
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(ConfigWifiSsid) || string.IsNullOrWhiteSpace(ConfigWifiPassword))
-        {
-            ErrorMessage = "Wi-Fi情報が未入力です";
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(ConfigOpenAiKey))
         {
             ErrorMessage = "OpenAI APIキーが未入力です";
@@ -440,7 +492,7 @@ public class MainViewModel : BindableBase
             }
 
             StatusMessage = "設定送信完了";
-            Step = 4;
+            Step = 7;
         }
         catch (Exception ex)
         {
@@ -467,18 +519,60 @@ public class MainViewModel : BindableBase
 
         try
         {
-            var apiResult = await _apiTestService.TestAsync(ConfigOpenAiKey, CancellationToken.None);
-            ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
-            _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
-
-            var azureResult = await _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, CancellationToken.None);
-            if (azureResult.Message == "未入力")
+            var openAiOk = _openAiTestedOk && _openAiTestedKey == ConfigOpenAiKey;
+            ApiTestResult? apiResult = null;
+            if (!openAiOk)
             {
-                AzureTestSummary = "未入力";
+                apiResult = await _apiTestService.TestAsync(ConfigOpenAiKey, CancellationToken.None);
+                ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
+                _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
+                if (apiResult.Success)
+                {
+                    _openAiTestedKey = ConfigOpenAiKey;
+                    _openAiTestedOk = true;
+                    openAiOk = true;
+                }
             }
             else
             {
-                AzureTestSummary = azureResult.Success ? "OK" : azureResult.Message;
+                ApiTestSummary = "OK (確認済み)";
+            }
+
+            var azureOk = _azureTestedOk &&
+                          _azureTestedKey == AzureKey &&
+                          _azureTestedRegion == AzureRegion &&
+                          _azureTestedSubdomain == AzureCustomSubdomain;
+            ApiTestResult? azureResult = null;
+            if (string.IsNullOrWhiteSpace(AzureKey))
+            {
+                AzureTestSummary = "未入力";
+                azureOk = true;
+            }
+            else if (!azureOk)
+            {
+                azureResult = await _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, CancellationToken.None);
+                if (azureResult.Message == "未入力")
+                {
+                    AzureTestSummary = "未入力";
+                    azureOk = true;
+                }
+                else
+                {
+                    AzureTestSummary = azureResult.Success ? "OK" : azureResult.Message;
+                }
+
+                if (azureResult.Success)
+                {
+                    _azureTestedKey = AzureKey;
+                    _azureTestedRegion = AzureRegion;
+                    _azureTestedSubdomain = AzureCustomSubdomain;
+                    _azureTestedOk = true;
+                    azureOk = true;
+                }
+            }
+            else
+            {
+                AzureTestSummary = "OK (確認済み)";
             }
 
             // Stub: 端末側TEST_RUN未実装の場合はSkippedとして扱う
@@ -494,11 +588,10 @@ public class MainViewModel : BindableBase
                 _lastDeviceResult = deviceResult.Success ? "success" : deviceResult.Message;
             }
 
-            var azureOk = azureResult.Success || azureResult.Message == "未入力";
-            if (apiResult.Success && azureOk && (deviceResult.Success || deviceResult.Skipped))
+            if (openAiOk && azureOk && (deviceResult.Success || deviceResult.Skipped))
             {
                 StatusMessage = "テスト完了";
-                Step = 5;
+                Step = 8;
             }
             else
             {
@@ -516,6 +609,122 @@ public class MainViewModel : BindableBase
         {
             IsBusy = false;
         }
+    }
+
+    private async Task TestAzureAsync()
+    {
+        ErrorMessage = "";
+        IsBusy = true;
+        StatusMessage = "Azureキーを確認中...";
+
+        try
+        {
+            var azureResult = await _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, CancellationToken.None);
+            if (azureResult.Message == "未入力")
+            {
+                AzureTestSummary = "未入力";
+            }
+            else
+            {
+                AzureTestSummary = azureResult.Success ? "OK" : azureResult.Message;
+            }
+
+            if (azureResult.Success)
+            {
+                _azureTestedKey = AzureKey;
+                _azureTestedRegion = AzureRegion;
+                _azureTestedSubdomain = AzureCustomSubdomain;
+                _azureTestedOk = true;
+            }
+
+            StatusMessage = "Azureキー確認完了";
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Azure test failed");
+            ErrorMessage = "Azureキー確認に失敗しました";
+            _lastError = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task TestOpenAiAsync()
+    {
+        ErrorMessage = "";
+        IsBusy = true;
+        StatusMessage = "OpenAIキーを確認中...";
+
+        try
+        {
+            var apiResult = await _apiTestService.TestAsync(ConfigOpenAiKey, CancellationToken.None);
+            ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
+            _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
+            if (apiResult.Success)
+            {
+                _openAiTestedKey = ConfigOpenAiKey;
+                _openAiTestedOk = true;
+            }
+            StatusMessage = "OpenAIキー確認完了";
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "OpenAI test failed");
+            ErrorMessage = "OpenAIキー確認に失敗しました";
+            _lastError = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task DumpDeviceLogAsync()
+    {
+        if (SelectedPort == null)
+        {
+            ErrorMessage = "COMポートが未選択です";
+            return;
+        }
+
+        ErrorMessage = "";
+        IsBusy = true;
+        StatusMessage = "デバイスログを取得中...";
+
+        try
+        {
+            var deviceLog = await _serialService.DumpLogAsync(SelectedPort.PortName);
+            if (string.IsNullOrWhiteSpace(deviceLog))
+            {
+                ErrorMessage = "デバイスログが空でした";
+                return;
+            }
+
+            Directory.CreateDirectory(LogService.LogDirectory);
+            await File.WriteAllTextAsync(LogService.DeviceLogPath, deviceLog);
+            StatusMessage = $"デバイスログを保存しました: {LogService.DeviceLogPath}";
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Device log dump failed");
+            ErrorMessage = "デバイスログ取得に失敗しました";
+            _lastError = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void ResetAzureTestState()
+    {
+        _azureTestedKey = "";
+        _azureTestedRegion = "";
+        _azureTestedSubdomain = "";
+        _azureTestedOk = false;
+        AzureTestSummary = "未実行";
     }
 
     private void BrowseFirmware()
@@ -630,14 +839,26 @@ public class MainViewModel : BindableBase
                 PrimaryButtonText = "書き込む";
                 break;
             case 3:
-                StepTitle = "設定";
-                PrimaryButtonText = "保存してデバイスに送る";
+                StepTitle = "Wi-Fi";
+                PrimaryButtonText = "次へ";
                 break;
             case 4:
-                StepTitle = "テスト";
-                PrimaryButtonText = "AIテストを実行";
+                StepTitle = "Duino-coin";
+                PrimaryButtonText = "次へ";
                 break;
             case 5:
+                StepTitle = "Azure";
+                PrimaryButtonText = "次へ";
+                break;
+            case 6:
+                StepTitle = "OpenAI";
+                PrimaryButtonText = "保存してデバイスに送る";
+                break;
+            case 7:
+                StepTitle = "ログ";
+                PrimaryButtonText = "完了へ";
+                break;
+            case 8:
                 StepTitle = "完了";
                 PrimaryButtonText = "閉じる";
                 break;

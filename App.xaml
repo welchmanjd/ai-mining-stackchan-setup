@@ -8,9 +8,20 @@
         <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
+        <SolidColorBrush x:Key="UiTextPrimary" Color="#111827" />
+        <SolidColorBrush x:Key="UiTextMuted" Color="#6B7280" />
+        <SolidColorBrush x:Key="UiBorder" Color="#D1D5DB" />
+        <SolidColorBrush x:Key="UiBorderFocus" Color="#1F6FEB" />
+        <SolidColorBrush x:Key="UiSurface" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="UiSurfaceAlt" Color="#F9FAFB" />
+        <SolidColorBrush x:Key="UiDisabledBg" Color="#F3F4F6" />
+        <SolidColorBrush x:Key="UiDisabledText" Color="#9CA3AF" />
+
         <Style TargetType="TextBlock">
             <Setter Property="FontSize" Value="14" />
             <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground"
+                    Value="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground, FallbackValue={StaticResource UiTextPrimary}}" />
         </Style>
 
         <Style x:Key="PrimaryButtonStyle" TargetType="Button">
@@ -22,6 +33,35 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Right" />
             <Setter Property="MinWidth" Value="160" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              Margin="{TemplateBinding Padding}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1D5FD1" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#1B57C2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#9CA3AF" />
+                                <Setter Property="Foreground" Value="#F3F4F6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
@@ -29,9 +69,38 @@
             <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="12,4" />
             <Setter Property="Background" Value="#E5E7EB" />
-            <Setter Property="Foreground" Value="#111827" />
+            <Setter Property="Foreground" Value="{StaticResource UiTextPrimary}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"
+                                              Margin="{TemplateBinding Padding}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#D1D5DB" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#C7CBD2" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#F3F4F6" />
+                                <Setter Property="Foreground" Value="#9CA3AF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="SmallLinkButtonStyle" TargetType="Button">
@@ -40,11 +109,213 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          Margin="{TemplateBinding Padding}" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#1D4ED8" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Foreground" Value="#1E40AF" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource UiDisabledText}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="Expander">
             <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="#4B5563" />
+            <Setter Property="Foreground" Value="{StaticResource UiTextMuted}" />
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Background" Value="{StaticResource UiSurface}" />
+            <Setter Property="Foreground" Value="{StaticResource UiTextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource UiBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="0" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#9CA3AF" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource UiBorderFocus}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="{StaticResource UiDisabledBg}" />
+                                <Setter Property="Foreground" Value="{StaticResource UiDisabledText}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="PasswordBox">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Background" Value="{StaticResource UiSurface}" />
+            <Setter Property="Foreground" Value="{StaticResource UiTextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource UiBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="0" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#9CA3AF" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource UiBorderFocus}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="{StaticResource UiDisabledBg}" />
+                                <Setter Property="Foreground" Value="{StaticResource UiDisabledText}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Background" Value="{StaticResource UiSurface}" />
+            <Setter Property="Foreground" Value="{StaticResource UiTextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource UiBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="Border"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="6" />
+                            <Grid Margin="8,0,28,0">
+                                <ContentPresenter x:Name="ContentSite"
+                                                  IsHitTestVisible="False"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Left" />
+                            </Grid>
+                            <ToggleButton x:Name="DropDownToggle"
+                                          Grid.Column="1"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="Transparent"
+                                          BorderThickness="0">
+                                <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                      Fill="#6B7280"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center" />
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   Placement="Bottom"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Slide">
+                                <Border Background="{StaticResource UiSurface}"
+                                        BorderBrush="{StaticResource UiBorder}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Margin="0,4,0,0">
+                                    <ScrollViewer Margin="0" SnapsToDevicePixels="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="#9CA3AF" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource UiBorderFocus}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Border" Property="Background" Value="{StaticResource UiDisabledBg}" />
+                                <Setter Property="Foreground" Value="{StaticResource UiDisabledText}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource UiTextPrimary}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <StackPanel Orientation="Horizontal">
+                            <Border x:Name="Box"
+                                    Width="16"
+                                    Height="16"
+                                    Background="{StaticResource UiSurface}"
+                                    BorderBrush="{StaticResource UiBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="3"
+                                    Margin="0,0,6,0">
+                                <Path x:Name="Check"
+                                      Data="M 3 8 L 6 11 L 13 3"
+                                      Stroke="White"
+                                      StrokeThickness="2"
+                                      Visibility="Collapsed" />
+                            </Border>
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#9CA3AF" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="#1F6FEB" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="#1F6FEB" />
+                                <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource UiDisabledBg}" />
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource UiDisabledBg}" />
+                                <Setter Property="Foreground" Value="{StaticResource UiDisabledText}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ProgressBar">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Background" Value="{StaticResource UiSurfaceAlt}" />
+            <Setter Property="Foreground" Value="#1F6FEB" />
         </Style>
     </Application.Resources>
 </Application>
