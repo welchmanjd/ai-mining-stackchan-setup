@@ -13,6 +13,10 @@ obj/
 
 # Logs
 *.log
+*.zip
+
+# Publish output
+dist/
 
 # OS
 Thumbs.db
