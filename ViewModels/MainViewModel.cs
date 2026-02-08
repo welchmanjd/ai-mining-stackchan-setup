@@ -55,9 +55,19 @@ public class MainViewModel : BindableBase
 
     private string _configWifiSsid = "";
     private string _configWifiPassword = "";
+    private bool _wifiEnabled = true;
+    private bool _miningEnabled = true;
+    private bool _aiEnabled = true;
     private string _ducoUser = "";
     private string _ducoMinerKey = "";
     private string _configOpenAiKey = "";
+    private string _configOpenAiModel = "gpt-5-nano";
+    private string _configOpenAiInstructions = "";
+    private string _displaySleepSecondsText = "60";
+    private string _speakerVolumeText = "160";
+    private string _shareAcceptedText = "";
+    private string _attentionText = "";
+    private string _helloText = "";
     private string _maskedOpenAiKey = "";
     // Stub: PC保存とAzure連携はv1では未実装（UIのみ）
     private bool _saveToPc;
@@ -336,6 +346,38 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _configWifiPassword, value);
     }
 
+    public bool WifiEnabled
+    {
+        get => _wifiEnabled;
+        set
+        {
+            if (SetProperty(ref _wifiEnabled, value))
+            {
+                if (!_wifiEnabled)
+                {
+                    MiningEnabled = false;
+                    AiEnabled = false;
+                }
+
+                RaisePropertyChanged(nameof(FeatureToggleChildrenEnabled));
+            }
+        }
+    }
+
+    public bool MiningEnabled
+    {
+        get => _miningEnabled;
+        set => SetProperty(ref _miningEnabled, value);
+    }
+
+    public bool AiEnabled
+    {
+        get => _aiEnabled;
+        set => SetProperty(ref _aiEnabled, value);
+    }
+
+    public bool FeatureToggleChildrenEnabled => WifiEnabled;
+
     public string DucoUser
     {
         get => _ducoUser;
@@ -363,6 +405,48 @@ public class MainViewModel : BindableBase
                 ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
             }
         }
+    }
+
+    public string ConfigOpenAiModel
+    {
+        get => _configOpenAiModel;
+        set => SetProperty(ref _configOpenAiModel, value);
+    }
+
+    public string ConfigOpenAiInstructions
+    {
+        get => _configOpenAiInstructions;
+        set => SetProperty(ref _configOpenAiInstructions, value);
+    }
+
+    public string DisplaySleepSecondsText
+    {
+        get => _displaySleepSecondsText;
+        set => SetProperty(ref _displaySleepSecondsText, value);
+    }
+
+    public string SpeakerVolumeText
+    {
+        get => _speakerVolumeText;
+        set => SetProperty(ref _speakerVolumeText, value);
+    }
+
+    public string ShareAcceptedText
+    {
+        get => _shareAcceptedText;
+        set => SetProperty(ref _shareAcceptedText, value);
+    }
+
+    public string AttentionText
+    {
+        get => _attentionText;
+        set => SetProperty(ref _attentionText, value);
+    }
+
+    public string HelloText
+    {
+        get => _helloText;
+        set => SetProperty(ref _helloText, value);
     }
 
     public string MaskedOpenAiKey
@@ -954,18 +1038,48 @@ public class MainViewModel : BindableBase
         }
     }
 
-    private DeviceConfig BuildDeviceConfig()
+    public DeviceConfig BuildDeviceConfig()
     {
+        var displaySleepSeconds = 60;
+        if (!string.IsNullOrWhiteSpace(DisplaySleepSecondsText) &&
+            int.TryParse(DisplaySleepSecondsText, out var parsedSleep) &&
+            parsedSleep >= 0)
+        {
+            displaySleepSeconds = parsedSleep;
+        }
+
+        var speakerVolume = 160;
+        if (!string.IsNullOrWhiteSpace(SpeakerVolumeText) &&
+            int.TryParse(SpeakerVolumeText, out var parsedVolume) &&
+            parsedVolume >= 0 && parsedVolume <= 255)
+        {
+            speakerVolume = parsedVolume;
+        }
+
+        var wifiEnabled = WifiEnabled;
+        var miningEnabled = wifiEnabled && MiningEnabled;
+        var aiEnabled = wifiEnabled && AiEnabled;
+
         return new DeviceConfig
         {
+            WifiEnabled = wifiEnabled,
+            MiningEnabled = miningEnabled,
+            AiEnabled = aiEnabled,
             WifiSsid = ConfigWifiSsid,
             WifiPassword = ConfigWifiPassword,
             DucoUser = DucoUser,
             DucoMinerKey = DucoMinerKey,
             OpenAiKey = ConfigOpenAiKey,
+            OpenAiModel = ConfigOpenAiModel,
+            OpenAiInstructions = ConfigOpenAiInstructions,
             AzureKey = AzureKey,
             AzureRegion = AzureRegion,
-            AzureCustomSubdomain = AzureCustomSubdomain
+            AzureCustomSubdomain = AzureCustomSubdomain,
+            DisplaySleepSeconds = displaySleepSeconds,
+            SpeakerVolume = speakerVolume,
+            ShareAcceptedText = ShareAcceptedText,
+            AttentionText = AttentionText,
+            HelloText = HelloText
         };
     }
 

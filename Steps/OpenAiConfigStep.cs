@@ -95,17 +95,7 @@ public sealed class OpenAiConfigStep : StepBase
             vm.LastProtocolResponse = context.SerialService.LastProtocolResponse;
 
             vm.StatusMessage = "設定送信中...";
-            var config = new DeviceConfig
-            {
-                WifiSsid = vm.ConfigWifiSsid,
-                WifiPassword = vm.ConfigWifiPassword,
-                DucoUser = vm.DucoUser,
-                DucoMinerKey = vm.DucoMinerKey,
-                OpenAiKey = vm.ConfigOpenAiKey,
-                AzureKey = vm.AzureKey,
-                AzureRegion = vm.AzureRegion,
-                AzureCustomSubdomain = vm.AzureCustomSubdomain
-            };
+            var config = vm.BuildDeviceConfig();
 
             var setResult = await context.RetryPolicy.ExecuteWithTimeoutAsync(
                 ct => context.SerialService.SendConfigAsync(vm.SelectedPort.PortName, config, ct),

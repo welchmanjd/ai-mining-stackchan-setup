@@ -120,25 +120,74 @@
                             </StackPanel>
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=6}">
-                                <TextBlock Text="OpenAI APIキーを設定します。" Margin="0,0,0,8" />
-                                <TextBlock Text="{Binding DeviceStatusSummary, StringFormat=デバイス状態: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
-                                <StackPanel Margin="0,0,0,8">
-                                    <TextBlock Text="OpenAI APIキー" />
-                                    <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
-                                    <TextBlock Text="{Binding MaskedOpenAiKey, StringFormat=入力済み: {0}}" FontSize="12" Foreground="#6B7280" />
-                                </StackPanel>
-                                <Button Content="OpenAIキーを確認"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        Command="{Binding OpenAiTestCommand}" />
-                                <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,8,0,8">
-                                    <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
-                                </Border>
-
-                                <Expander Header="詳細 (Advanced)">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
-                                        <CheckBox Content="このPCに保存 (未実装)" IsChecked="{Binding SaveToPc}" IsEnabled="False" Margin="0,0,0,6" />
+                                        <TextBlock Text="設定をまとめて反映します。" Margin="0,0,0,8" />
+                                        <TextBlock Text="{Binding DeviceStatusSummary, StringFormat=デバイス状態: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
+
+                                        <GroupBox Header="機能のON/OFF" Margin="0,0,0,8">
+                                            <StackPanel Margin="8,6,8,6">
+                                                <CheckBox Content="Wi-Fi/通信を有効化" IsChecked="{Binding WifiEnabled}" Margin="0,0,0,4" />
+                                                <CheckBox Content="マイニングを有効化" IsChecked="{Binding MiningEnabled}" IsEnabled="{Binding FeatureToggleChildrenEnabled}" Margin="0,0,0,4" />
+                                                <CheckBox Content="AIを有効化" IsChecked="{Binding AiEnabled}" IsEnabled="{Binding FeatureToggleChildrenEnabled}" />
+                                            </StackPanel>
+                                        </GroupBox>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="OpenAI APIキー" />
+                                            <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
+                                            <TextBlock Text="{Binding MaskedOpenAiKey, StringFormat=入力済み: {0}}" FontSize="12" Foreground="#6B7280" />
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="OpenAIモデル" />
+                                            <TextBox Text="{Binding ConfigOpenAiModel}" />
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="初期プロンプト (OpenAI instructions)" />
+                                            <TextBox Text="{Binding ConfigOpenAiInstructions}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" />
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="画面スリープ秒数" />
+                                            <TextBox Text="{Binding DisplaySleepSecondsText}" />
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="スピーカー音量 (0-255)" />
+                                            <TextBox Text="{Binding SpeakerVolumeText}" />
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="シェア獲得時のセリフ" />
+                                            <TextBox Text="{Binding ShareAcceptedText}" />
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="スタックチャン画面遷移時のセリフ" />
+                                            <TextBox Text="{Binding AttentionText}" />
+                                        </StackPanel>
+
+                                        <StackPanel Margin="0,0,0,8">
+                                            <TextBlock Text="ボタンB押下時のセリフ" />
+                                            <TextBox Text="{Binding HelloText}" />
+                                        </StackPanel>
+
+                                        <Button Content="OpenAIキーを確認"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                Command="{Binding OpenAiTestCommand}" />
+                                        <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,8,0,8">
+                                            <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
+                                        </Border>
+
+                                        <Expander Header="詳細 (Advanced)">
+                                            <StackPanel>
+                                                <CheckBox Content="このPCに保存 (未実装)" IsChecked="{Binding SaveToPc}" IsEnabled="False" Margin="0,0,0,6" />
+                                            </StackPanel>
+                                        </Expander>
                                     </StackPanel>
-                                </Expander>
+                                </ScrollViewer>
                             </StackPanel>
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=7}">

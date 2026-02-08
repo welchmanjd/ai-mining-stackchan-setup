@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
@@ -152,70 +153,128 @@ public class SerialService
 
     public async Task<ConfigResult> SendConfigAsync(string portName, DeviceConfig config, CancellationToken token)
     {
+        var warnings = new List<string>();
+        async Task<ConfigResult> SendSetWithCompatAsync(string key, string value, bool allowUnknownKey)
+        {
+            var result = await SendSetAsync(portName, key, value, token);
+            if (result.Success)
+            {
+                return result;
+            }
+
+            if (allowUnknownKey && result.Message.Contains("unknown_key", StringComparison.OrdinalIgnoreCase))
+            {
+                warnings.Add($"{key}:unsupported");
+                return new ConfigResult { Success = true, Message = "SKIP" };
+            }
+
+            return result;
+        }
+
+        {
+            var result = await SendSetWithCompatAsync("wifi_enabled", config.WifiEnabled ? "1" : "0", allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+        {
+            var result = await SendSetWithCompatAsync("mining_enabled", config.MiningEnabled ? "1" : "0", allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+        {
+            var result = await SendSetWithCompatAsync("ai_enabled", config.AiEnabled ? "1" : "0", allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+
         if (!string.IsNullOrWhiteSpace(config.WifiSsid))
         {
-            var result = await SendSetAsync(portName, "wifi_ssid", config.WifiSsid, token);
+            var result = await SendSetWithCompatAsync("wifi_ssid", config.WifiSsid, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.WifiPassword))
         {
-            var result = await SendSetAsync(portName, "wifi_pass", config.WifiPassword, token);
+            var result = await SendSetWithCompatAsync("wifi_pass", config.WifiPassword, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.DucoUser))
         {
-            var result = await SendSetAsync(portName, "duco_user", config.DucoUser, token);
+            var result = await SendSetWithCompatAsync("duco_user", config.DucoUser, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.DucoMinerKey))
         {
-            var result = await SendSetAsync(portName, "duco_miner_key", config.DucoMinerKey, token);
+            var result = await SendSetWithCompatAsync("duco_miner_key", config.DucoMinerKey, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.AzureRegion))
         {
-            var result = await SendSetAsync(portName, "az_speech_region", config.AzureRegion, token);
+            var result = await SendSetWithCompatAsync("az_speech_region", config.AzureRegion, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.AzureKey))
         {
-            var result = await SendSetAsync(portName, "az_speech_key", config.AzureKey, token);
+            var result = await SendSetWithCompatAsync("az_speech_key", config.AzureKey, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.AzureCustomSubdomain))
         {
-            var result = await SendSetAsync(portName, "az_custom_subdomain", config.AzureCustomSubdomain, token);
+            var result = await SendSetWithCompatAsync("az_custom_subdomain", config.AzureCustomSubdomain, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
-        var openAiSkipped = false;
         if (!string.IsNullOrWhiteSpace(config.OpenAiKey))
         {
-            var result = await SendSetAsync(portName, "openai_key", config.OpenAiKey, token);
-            if (!result.Success)
-            {
-                if (result.Message.Contains("unknown_key", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Device firmware does not support openai_key; skip as non-fatal.
-                    openAiSkipped = true;
-                }
-                else
-                {
-                    return result;
-                }
-            }
+            var result = await SendSetWithCompatAsync("openai_key", config.OpenAiKey, allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.OpenAiModel))
+        {
+            var result = await SendSetWithCompatAsync("openai_model", config.OpenAiModel, allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.OpenAiInstructions))
+        {
+            var result = await SendSetWithCompatAsync("openai_instructions", config.OpenAiInstructions, allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+
+        {
+            var result = await SendSetWithCompatAsync("display_sleep_s", config.DisplaySleepSeconds.ToString(CultureInfo.InvariantCulture), allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+        {
+            var result = await SendSetWithCompatAsync("spk_volume", config.SpeakerVolume.ToString(CultureInfo.InvariantCulture), allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.ShareAcceptedText))
+        {
+            var result = await SendSetWithCompatAsync("share_accepted_text", config.ShareAcceptedText, allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.AttentionText))
+        {
+            var result = await SendSetWithCompatAsync("attention_text", config.AttentionText, allowUnknownKey: true);
+            if (!result.Success) return result;
+        }
+
+        if (!string.IsNullOrWhiteSpace(config.HelloText))
+        {
+            var result = await SendSetWithCompatAsync("hello_text", config.HelloText, allowUnknownKey: true);
+            if (!result.Success) return result;
         }
 
         return new ConfigResult
         {
             Success = true,
-            Message = openAiSkipped ? "OpenAIキーは未対応のためスキップしました" : "OK"
+            Message = warnings.Count > 0 ? $"一部キー未対応: {string.Join(", ", warnings)}" : "OK"
         };
     }
 
