@@ -1032,10 +1032,64 @@ public class MainViewModel : BindableBase
             return string.Empty;
         }
 
-        var basePublic = Path.Combine(exeDir, "stackchan_core2_public.bin");
-        if (File.Exists(basePublic))
+        // app の1つ上（配布zipのルート）を想定
+        string? rootDir = null;
+        try
         {
-            return basePublic;
+            rootDir = Directory.GetParent(exeDir)?.FullName;
+        }
+        catch
+        {
+            rootDir = null;
+        }
+
+        // まずは「ルートの firmware」を最優先（ユーザー差し替え口）
+        // 次に app\firmware（同梱の保険）
+        // 最後に exeDir 直下（旧互換）
+        var candidates = new[]
+        {
+            rootDir != null ? Path.Combine(rootDir, "firmware", "stackchan_core2_public.bin") : null,
+            Path.Combine(exeDir, "firmware", "stackchan_core2_public.bin"),
+            Path.Combine(exeDir, "stackchan_core2_public.bin"),
+        };
+
+        foreach (var c in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(c) && File.Exists(c))
+            {
+                return c!;
+            }
+        }
+
+        // 保険：名前が変わっても "_public" を含む .bin を拾う
+        // ルート firmware → app firmware の順で探す
+        var searchDirs = new[]
+        {
+            rootDir != null ? Path.Combine(rootDir, "firmware") : null,
+            Path.Combine(exeDir, "firmware"),
+        };
+
+        foreach (var d in searchDirs)
+        {
+            if (string.IsNullOrWhiteSpace(d) || !Directory.Exists(d))
+            {
+                continue;
+            }
+
+            try
+            {
+                var f = Directory.EnumerateFiles(d, "*.bin", SearchOption.TopDirectoryOnly)
+                    .FirstOrDefault(p => Path.GetFileName(p).Contains("_public", StringComparison.OrdinalIgnoreCase));
+
+                if (!string.IsNullOrWhiteSpace(f) && File.Exists(f))
+                {
+                    return f!;
+                }
+            }
+            catch
+            {
+                // ignore
+            }
         }
 
         return string.Empty;

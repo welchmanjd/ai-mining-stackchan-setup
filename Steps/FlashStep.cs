@@ -35,9 +35,12 @@ public sealed class FlashStep : StepBase
             return StepResult.Fail("ファームウェアが見つかりません", canRetry: false);
         }
 
-        if (!Path.GetFileName(vm.FirmwarePath).Equals("stackchan_core2_public.bin", StringComparison.OrdinalIgnoreCase))
+        var fwName = Path.GetFileName(vm.FirmwarePath);
+        if (string.IsNullOrWhiteSpace(fwName) ||
+            !fwName.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) ||
+            !fwName.Contains("_public", StringComparison.OrdinalIgnoreCase))
         {
-            vm.ErrorMessage = "stackchan_core2_public.binのみ対応しています";
+            vm.ErrorMessage = "_public を含む .bin のみ対応しています";
             return StepResult.Fail("ファームウェアが無効です", canRetry: false);
         }
 

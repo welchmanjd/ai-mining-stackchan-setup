@@ -2,13 +2,19 @@ param(
     [string]$Env = 'm5stack-core2-dist',
     [string]$FirmwareRepo = '',
     [switch]$SkipBuild,
-    [switch]$UseSampleConfig = $true
+    [switch]$UseSampleConfig
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $setupRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+
+$useSampleConfig = $true
+if ($PSBoundParameters.ContainsKey('UseSampleConfig')) {
+    $useSampleConfig = $UseSampleConfig.IsPresent
+}
+
 if ([string]::IsNullOrWhiteSpace($FirmwareRepo)) {
     $FirmwareRepo = Join-Path $setupRoot '..\ai-mining-stackchan-core2'
 }
@@ -24,7 +30,7 @@ $privateConfig = Join-Path $configDir 'config_private.h'
 $backupConfig = ""
 $copiedSample = $false
 
-if ($UseSampleConfig) {
+if ($useSampleConfig) {
     if (-not (Test-Path $sampleConfig)) {
         throw "Sample config not found: $sampleConfig"
     }
@@ -97,7 +103,8 @@ try {
         throw "esptool.py merge_bin failed with exit code $LASTEXITCODE"
     }
 
-    $outDir = Join-Path $setupRoot 'Resources\firmware'
+    $rootFirmwareDir = Join-Path $setupRoot 'firmware'
+    $outDir = if (Test-Path $rootFirmwareDir) { $rootFirmwareDir } else { Join-Path $setupRoot 'Resources\firmware' }
     $destMain = Join-Path $outDir 'stackchan_core2_public.bin'
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
     Copy-Item -Path $mergedPath -Destination $destMain -Force
