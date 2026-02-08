@@ -1004,7 +1004,34 @@ public class MainViewModel : BindableBase
     private static string ResolveDefaultFirmwarePath()
     {
         var baseDir = AppContext.BaseDirectory;
-        return Path.Combine(baseDir, "Resources", "firmware", "stackchan_core2.bin");
+        var firmwareDir = Path.Combine(baseDir, "Resources", "firmware");
+        var publicBin = Path.Combine(firmwareDir, "stackchan_core2_public.bin");
+        if (File.Exists(publicBin))
+        {
+            return publicBin;
+        }
+
+        // Fallback: dev-time location (repo Resources/firmware)
+        var current = new DirectoryInfo(baseDir);
+        for (var i = 0; i < 6 && current != null; i++)
+        {
+            var repoFirmwareDir = Path.Combine(current.FullName, "Resources", "firmware");
+            var repoPublic = Path.Combine(repoFirmwareDir, "stackchan_core2_public.bin");
+            if (File.Exists(repoPublic))
+            {
+                return repoPublic;
+            }
+
+            var repoDefault = Path.Combine(repoFirmwareDir, "stackchan_core2.bin");
+            if (File.Exists(repoDefault))
+            {
+                return repoDefault;
+            }
+
+            current = current.Parent;
+        }
+
+        return Path.Combine(firmwareDir, "stackchan_core2.bin");
     }
 
     private static string BuildFirmwareInfoText(string path)
