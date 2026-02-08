@@ -30,6 +30,20 @@ public class ConfigResult
     public string Message { get; set; } = string.Empty;
 }
 
+public class CommandResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
+public class DeviceInfoResult
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string RawJson { get; set; } = string.Empty;
+    public DeviceInfo? Info { get; set; }
+}
+
 public class HelloResult
 {
     public bool Success { get; set; }

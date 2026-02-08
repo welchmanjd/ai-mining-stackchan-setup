@@ -7,7 +7,7 @@ public sealed class WifiStep : StepBase
 {
     public override int Index => 3;
     public override string Title => "Wi-Fi";
-    public override string Description => "Wi-Fi情報を入力します。";
+    public override string Description => "Wi-Fiを設定します。";
     public override string PrimaryActionText => "次へ";
     public override bool CanRetry => false;
 

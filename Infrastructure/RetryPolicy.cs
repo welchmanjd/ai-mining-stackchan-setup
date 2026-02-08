@@ -64,7 +64,14 @@ public sealed class RetryPolicy
         {
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeoutCts.CancelAfter(timeout);
-            return await action(timeoutCts.Token);
+            try
+            {
+                return await action(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                throw new TimeoutException("処理がタイムアウトしました");
+            }
         }, maxAttempts, baseDelay, backoffFactor, token);
     }
 }

@@ -64,30 +64,85 @@ public class SerialService
 
     public async Task<HelloResult> HelloAsync(string portName, CancellationToken token)
     {
-        var response = await SendCommandAsync(portName, "HELLO", TimeSpan.FromSeconds(5), token);
-        if (response == null)
+        try
         {
-            return new HelloResult { Success = false, Message = "デバイス応答がありません" };
-        }
+            var response = await SendCommandAsync(portName, "HELLO", TimeSpan.FromSeconds(5), token);
+            if (response.StartsWith("@OK HELLO", StringComparison.OrdinalIgnoreCase))
+            {
+                return new HelloResult { Success = true, Message = "OK" };
+            }
 
-        if (response.StartsWith("@OK HELLO", StringComparison.OrdinalIgnoreCase))
-        {
-            return new HelloResult { Success = true, Message = "OK" };
-        }
-
-        if (!response.StartsWith("HELLO_OK", StringComparison.OrdinalIgnoreCase))
-        {
             return new HelloResult { Success = false, Message = "応答が期待形式ではありません" };
         }
-
-        var json = response["HELLO_OK".Length..].Trim();
-        return new HelloResult
+        catch (SerialCommandException ex)
         {
-            Success = true,
-            Message = "OK",
-            RawJson = json,
-            Info = DeviceHelloInfo.TryParse(json)
-        };
+            return new HelloResult { Success = false, Message = ex.Reason };
+        }
+        catch (TimeoutException ex)
+        {
+            return new HelloResult { Success = false, Message = ex.Message };
+        }
+    }
+
+    public Task<CommandResult> PingAsync(string portName)
+    {
+        return PingAsync(portName, CancellationToken.None);
+    }
+
+    public async Task<CommandResult> PingAsync(string portName, CancellationToken token)
+    {
+        try
+        {
+            var response = await SendCommandAsync(portName, "PING", TimeSpan.FromSeconds(5), token);
+            if (response.StartsWith("@OK PONG", StringComparison.OrdinalIgnoreCase))
+            {
+                return new CommandResult { Success = true, Message = "OK" };
+            }
+
+            return new CommandResult { Success = false, Message = "応答が期待形式ではありません" };
+        }
+        catch (SerialCommandException ex)
+        {
+            return new CommandResult { Success = false, Message = ex.Reason };
+        }
+        catch (TimeoutException ex)
+        {
+            return new CommandResult { Success = false, Message = ex.Message };
+        }
+    }
+
+    public Task<DeviceInfoResult> GetInfoAsync(string portName)
+    {
+        return GetInfoAsync(portName, CancellationToken.None);
+    }
+
+    public async Task<DeviceInfoResult> GetInfoAsync(string portName, CancellationToken token)
+    {
+        try
+        {
+            var response = await SendCommandAsync(portName, "GET INFO", TimeSpan.FromSeconds(5), token);
+            if (!response.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
+            {
+                return new DeviceInfoResult { Success = false, Message = "応答が期待形式ではありません" };
+            }
+
+            var json = response["@INFO".Length..].Trim();
+            var info = DeviceInfo.TryParse(json);
+            if (info == null)
+            {
+                return new DeviceInfoResult { Success = false, Message = "INFO JSONが解析できません" };
+            }
+
+            return new DeviceInfoResult { Success = true, Message = "OK", RawJson = json, Info = info };
+        }
+        catch (SerialCommandException ex)
+        {
+            return new DeviceInfoResult { Success = false, Message = ex.Reason };
+        }
+        catch (TimeoutException ex)
+        {
+            return new DeviceInfoResult { Success = false, Message = ex.Message };
+        }
     }
 
     public Task<ConfigResult> SendConfigAsync(string portName, DeviceConfig config)
@@ -139,12 +194,29 @@ public class SerialService
             if (!result.Success) return result;
         }
 
+        var openAiSkipped = false;
         if (!string.IsNullOrWhiteSpace(config.OpenAiKey))
         {
-            Log.Warning("OpenAI APIキーはランタイム設定未対応のため送信をスキップします");
+            var result = await SendSetAsync(portName, "openai_key", config.OpenAiKey, token);
+            if (!result.Success)
+            {
+                if (result.Message.Contains("unknown_key", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Device firmware does not support openai_key; skip as non-fatal.
+                    openAiSkipped = true;
+                }
+                else
+                {
+                    return result;
+                }
+            }
         }
 
-        return new ConfigResult { Success = true, Message = "OK" };
+        return new ConfigResult
+        {
+            Success = true,
+            Message = openAiSkipped ? "OpenAIキーは未対応のためスキップしました" : "OK"
+        };
     }
 
     public Task<ConfigResult> ApplyConfigAsync(string portName)
@@ -154,31 +226,30 @@ public class SerialService
 
     public async Task<ConfigResult> ApplyConfigAsync(string portName, CancellationToken token)
     {
-        var saveResponse = await SendCommandAsync(portName, "SAVE", TimeSpan.FromSeconds(10), token);
-        if (saveResponse == null)
+        try
         {
-            return new ConfigResult { Success = false, Message = "保存がタイムアウトしました" };
-        }
-
-        if (!saveResponse.StartsWith("@OK SAVE", StringComparison.OrdinalIgnoreCase))
-        {
-            if (saveResponse.Contains("CFG saved", StringComparison.OrdinalIgnoreCase))
-            {
-                // accept device log line as success
-            }
-            else
+            var saveResponse = await SendCommandAsync(portName, "SAVE", TimeSpan.FromSeconds(10), token);
+            if (!saveResponse.StartsWith("@OK SAVE", StringComparison.OrdinalIgnoreCase))
             {
                 return new ConfigResult { Success = false, Message = "保存結果が不明です" };
             }
-        }
 
-        var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(5), token);
-        if (rebootResponse != null && !rebootResponse.StartsWith("@OK REBOOT", StringComparison.OrdinalIgnoreCase))
+            var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(5), token);
+            if (!rebootResponse.StartsWith("@OK REBOOT", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ConfigResult { Success = false, Message = "再起動結果が不明です" };
+            }
+
+            return new ConfigResult { Success = true, Message = "OK" };
+        }
+        catch (SerialCommandException ex)
         {
-            return new ConfigResult { Success = false, Message = "再起動結果が不明です" };
+            return new ConfigResult { Success = false, Message = ex.Reason };
         }
-
-        return new ConfigResult { Success = true, Message = "OK" };
+        catch (TimeoutException ex)
+        {
+            return new ConfigResult { Success = false, Message = ex.Message };
+        }
     }
 
     public Task<DeviceTestResult> RunTestAsync(string portName)
@@ -186,26 +257,13 @@ public class SerialService
         return RunTestAsync(portName, CancellationToken.None);
     }
 
-    public async Task<DeviceTestResult> RunTestAsync(string portName, CancellationToken token)
+    public Task<DeviceTestResult> RunTestAsync(string portName, CancellationToken token)
     {
-        var response = await SendCommandAsync(portName, "TEST_RUN", TimeSpan.FromSeconds(30), token);
-        if (response == null)
-        {
-            return new DeviceTestResult { Success = false, Skipped = true, Message = "デバイス側テスト未実装の可能性" };
-        }
-
-        if (response.StartsWith("@ERR unknown_cmd", StringComparison.OrdinalIgnoreCase))
-        {
-            return new DeviceTestResult { Success = false, Skipped = true, Message = "デバイス側テスト未実装の可能性" };
-        }
-
-        if (!response.StartsWith("TEST_RESULT", StringComparison.OrdinalIgnoreCase))
-        {
-            return new DeviceTestResult { Success = false, Message = "テスト結果が不明です" };
-        }
-
-        return ParseTestResult(response);
+        return Task.FromResult(new DeviceTestResult { Success = false, Skipped = true, Message = "デバイス側テスト未実装の可能性" });
     }
+
+    public string LastProtocolResponse { get; private set; } = string.Empty;
+    public string LastInfoJson { get; private set; } = string.Empty;
 
     public Task<string> DumpLogAsync(string portName)
     {
@@ -266,7 +324,7 @@ public class SerialService
         }
     }
 
-    private async Task<string?> SendCommandAsync(string portName, string command, TimeSpan timeout, CancellationToken token)
+    private async Task<string> SendCommandAsync(string portName, string command, TimeSpan timeout, CancellationToken token)
     {
         var trace = new StringBuilder();
         trace.AppendLine("=== serial command ===");
@@ -303,13 +361,26 @@ public class SerialService
                 Log.Warning("Serial timeout for {Command}", command.Split(' ')[0]);
                 trace.AppendLine("read: timeout");
                 await AppendSerialTraceAsync(trace);
-                return null;
+                throw new TimeoutException($"デバイス応答がタイムアウトしました ({command})");
             }
 
             Log.Information("Serial recv: {Line}", line);
             trace.AppendLine($"read: {line}");
             await AppendSerialTraceAsync(trace);
-            return line.Trim();
+            var trimmed = line.Trim();
+            LastProtocolResponse = trimmed;
+            if (trimmed.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
+            {
+                LastInfoJson = trimmed["@INFO".Length..].Trim();
+            }
+
+            if (trimmed.StartsWith("@ERR", StringComparison.OrdinalIgnoreCase))
+            {
+                var reason = trimmed["@ERR".Length..].Trim();
+                throw new SerialCommandException(reason, trimmed);
+            }
+
+            return trimmed;
         }
         catch (OperationCanceledException)
         {
@@ -322,7 +393,7 @@ public class SerialService
             Log.Error(ex, "Serial command failed");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
-            return null;
+            throw;
         }
         finally
         {
@@ -369,6 +440,15 @@ public class SerialService
             {
                 trace.AppendLine($"read: {line}");
                 trace.AppendLine("read: ignored (non-protocol)");
+                continue;
+            }
+
+            if (!(line.StartsWith("@OK", StringComparison.OrdinalIgnoreCase) ||
+                  line.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase) ||
+                  line.StartsWith("@ERR", StringComparison.OrdinalIgnoreCase)))
+            {
+                trace.AppendLine($"read: {line}");
+                trace.AppendLine("read: ignored (unknown protocol)");
                 continue;
             }
 
@@ -485,24 +565,24 @@ public class SerialService
 
     private async Task<ConfigResult> SendSetAsync(string portName, string key, string value, CancellationToken token)
     {
-        var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(5), token);
-        if (response == null)
+        try
         {
-            return new ConfigResult { Success = false, Message = $"設定送信がタイムアウトしました ({key})" };
-        }
+            var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(5), token);
+            if (response.StartsWith("@OK SET", StringComparison.OrdinalIgnoreCase))
+            {
+                return new ConfigResult { Success = true, Message = "OK" };
+            }
 
-        if (response.StartsWith("@OK SET", StringComparison.OrdinalIgnoreCase))
+            return new ConfigResult { Success = false, Message = $"設定結果が不明です ({key})" };
+        }
+        catch (SerialCommandException ex)
         {
-            return new ConfigResult { Success = true, Message = "OK" };
+            return new ConfigResult { Success = false, Message = $"設定失敗({key}): {ex.Reason}" };
         }
-
-        if (response.StartsWith("@ERR SET", StringComparison.OrdinalIgnoreCase))
+        catch (TimeoutException ex)
         {
-            var reason = response["@ERR SET".Length..].Trim();
-            return new ConfigResult { Success = false, Message = $"設定失敗({key}): {reason}" };
+            return new ConfigResult { Success = false, Message = ex.Message };
         }
-
-        return new ConfigResult { Success = false, Message = $"設定結果が不明です ({key})" };
     }
 
     private static string RedactCommand(string command)
@@ -533,5 +613,18 @@ public class SerialService
                key.Equals("duco_miner_key", StringComparison.OrdinalIgnoreCase) ||
                key.Equals("az_speech_key", StringComparison.OrdinalIgnoreCase) ||
                key.Equals("openai_key", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class SerialCommandException : Exception
+    {
+        public SerialCommandException(string reason, string line)
+            : base(reason)
+        {
+            Reason = reason;
+            Line = line;
+        }
+
+        public string Reason { get; }
+        public string Line { get; }
     }
 }

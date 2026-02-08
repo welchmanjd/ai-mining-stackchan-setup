@@ -30,7 +30,6 @@
                         <Grid>
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=1}">
                                 <TextBlock Text="USBでM5Stack Core2を接続してください。" Margin="0,0,0,8" />
-                                <TextBlock Text="検出されたポート:" Margin="0,0,0,4" />
                                 <ComboBox ItemsSource="{Binding Ports}"
                                           SelectedItem="{Binding SelectedPort}"
                                           DisplayMemberPath="DisplayName"
@@ -50,6 +49,11 @@
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=2}">
                                 <TextBlock Text="ファームウェアを書き込みます。" Margin="0,0,0,8" />
+                                <StackPanel Margin="0,0,0,8">
+                                    <RadioButton Content="ファームウェアを上書き" IsChecked="{Binding FlashModeOverwrite}" GroupName="FlashMode" Margin="0,0,0,4" />
+                                    <RadioButton Content="フラッシュを消去して上書き" IsChecked="{Binding FlashModeErase}" GroupName="FlashMode" Margin="0,0,0,4" />
+                                    <RadioButton Content="書き込みをスキップして設定のみ行う" IsChecked="{Binding FlashModeSkip}" GroupName="FlashMode" />
+                                </StackPanel>
                                 <TextBlock Text="{Binding FirmwarePath, StringFormat=ファイル: {0}}" Margin="0,0,0,4" />
                                 <TextBlock Text="{Binding FirmwareInfoText, StringFormat=同梱FW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
                                 <ProgressBar IsIndeterminate="True" Height="8" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8" />
@@ -61,7 +65,6 @@
                                             <TextBlock Text="Baud:" VerticalAlignment="Center" Margin="0,0,6,0" />
                                             <TextBox Width="120" Text="{Binding FlashBaud}" />
                                         </StackPanel>
-                                        <CheckBox Content="Erase flash を実行" IsChecked="{Binding FlashErase}" Margin="0,0,0,6" />
                                         <Button Content="ファイルを選ぶ" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BrowseFirmwareCommand}" Margin="0,0,0,6" />
                                         <TextBlock Text="書き込みログ" FontWeight="SemiBold" Margin="0,4,0,2" />
                                         <TextBlock Text="{Binding FlashLogPath}" FontSize="12" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,0,0,6" />

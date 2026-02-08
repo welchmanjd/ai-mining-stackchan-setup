@@ -11,7 +11,7 @@ public sealed class FlashStep : StepBase
     public override int Index => 2;
     public override string Title => "書き込み";
     public override string Description => "ファームウェアを書き込みます。";
-    public override string PrimaryActionText => "書き込む";
+    public override string PrimaryActionText => "書き込み";
     public override bool CanRetry => true;
 
     public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
@@ -20,6 +20,13 @@ public sealed class FlashStep : StepBase
         if (vm.SelectedPort == null)
         {
             return StepResult.Fail("COMポートが未選択です", canRetry: false);
+        }
+
+        if (vm.FlashModeSkip)
+        {
+            vm.FlashStatus = "書き込みをスキップしました";
+            vm.StatusMessage = "ファームウェア書き込みをスキップ";
+            return StepResult.Skipped();
         }
 
         if (!File.Exists(vm.FirmwarePath))
@@ -32,6 +39,7 @@ public sealed class FlashStep : StepBase
             return StepResult.Fail("Baudが不正です", canRetry: false);
         }
 
+        var erase = vm.FlashModeErase;
         vm.IsBusy = true;
         vm.FlashStatus = "書き込み中...";
         vm.StatusMessage = "";
@@ -39,7 +47,7 @@ public sealed class FlashStep : StepBase
         try
         {
             var result = await context.RetryPolicy.ExecuteWithTimeoutAsync(
-                ct => context.FlashService.FlashAsync(vm.SelectedPort.PortName, baud, vm.FlashErase, vm.FirmwarePath, ct),
+                ct => context.FlashService.FlashAsync(vm.SelectedPort.PortName, baud, erase, vm.FirmwarePath, ct),
                 context.Timeouts.Flash,
                 maxAttempts: 1,
                 baseDelay: TimeSpan.Zero,
@@ -57,7 +65,7 @@ public sealed class FlashStep : StepBase
             vm.FlashStatus = "書き込み失敗";
             vm.ErrorMessage = $"書き込みに失敗しました。ログ: {result.LogPath}";
             vm.PrimaryButtonText = "再試行";
-            return StepResult.Fail("書き込みに失敗しました", guidance: "配線やドライバを確認してください。", canRetry: true);
+            return StepResult.Fail("書き込みに失敗しました", guidance: "書き込みログを確認してください。", canRetry: true);
         }
         catch (OperationCanceledException)
         {

@@ -43,9 +43,12 @@ public class MainViewModel : BindableBase
     private string _firmwarePath = ResolveDefaultFirmwarePath();
     private string _flashBaudText = "921600";
     private bool _flashErase;
+    private int _flashMode;
     private string _flashStatus = "";
     private string _firmwareInfoText = "";
     private string _deviceStatusSummary = "未取得";
+    private string _deviceInfoJson = "";
+    private string _lastProtocolResponse = "";
 
     private string _configWifiSsid = "";
     private string _configWifiPassword = "";
@@ -226,6 +229,56 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _flashErase, value);
     }
 
+    public int FlashMode
+    {
+        get => _flashMode;
+        set
+        {
+            if (SetProperty(ref _flashMode, value))
+            {
+                RaisePropertyChanged(nameof(FlashModeOverwrite));
+                RaisePropertyChanged(nameof(FlashModeErase));
+                RaisePropertyChanged(nameof(FlashModeSkip));
+            }
+        }
+    }
+
+    public bool FlashModeOverwrite
+    {
+        get => FlashMode == 0;
+        set
+        {
+            if (value)
+            {
+                FlashMode = 0;
+            }
+        }
+    }
+
+    public bool FlashModeErase
+    {
+        get => FlashMode == 1;
+        set
+        {
+            if (value)
+            {
+                FlashMode = 1;
+            }
+        }
+    }
+
+    public bool FlashModeSkip
+    {
+        get => FlashMode == 2;
+        set
+        {
+            if (value)
+            {
+                FlashMode = 2;
+            }
+        }
+    }
+
     public string FlashStatus
     {
         get => _flashStatus;
@@ -236,6 +289,18 @@ public class MainViewModel : BindableBase
     {
         get => _deviceStatusSummary;
         set => SetProperty(ref _deviceStatusSummary, value);
+    }
+
+    public string DeviceInfoJson
+    {
+        get => _deviceInfoJson;
+        set => SetProperty(ref _deviceInfoJson, value);
+    }
+
+    public string LastProtocolResponse
+    {
+        get => _lastProtocolResponse;
+        set => SetProperty(ref _lastProtocolResponse, value);
     }
 
     public string FlashLogPath => LogService.FlashLogPath;
@@ -793,6 +858,8 @@ public class MainViewModel : BindableBase
                 ApiTest = _lastApiResult,
                 DeviceTest = _lastDeviceResult,
                 LastError = _lastError,
+                DeviceInfoJson = string.IsNullOrWhiteSpace(DeviceInfoJson) ? _serialService.LastInfoJson : DeviceInfoJson,
+                LastProtocolResponse = string.IsNullOrWhiteSpace(LastProtocolResponse) ? _serialService.LastProtocolResponse : LastProtocolResponse,
                 Config = config.ToMasked()
             };
 

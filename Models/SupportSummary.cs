@@ -14,5 +14,7 @@ public class SupportSummary
     public string ApiTest { get; set; } = string.Empty;
     public string DeviceTest { get; set; } = string.Empty;
     public string LastError { get; set; } = string.Empty;
+    public string DeviceInfoJson { get; set; } = string.Empty;
+    public string LastProtocolResponse { get; set; } = string.Empty;
     public MaskedDeviceConfig? Config { get; set; }
 }
