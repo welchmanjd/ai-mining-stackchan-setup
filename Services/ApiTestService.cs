@@ -45,14 +45,15 @@ public class ApiTestService
             var modelId = await SelectPreferredModelAsync(modelsResponse, token);
             if (string.IsNullOrWhiteSpace(modelId))
             {
-                return new ApiTestResult { Success = false, Message = "利用可能なモデルが見つかりません" };
+                return new ApiTestResult { Success = false, Message = "gpt-5-nanoが利用できません" };
             }
 
+            Log.Information("OpenAI API test using model {Model}", modelId);
             var payload = new
             {
                 model = modelId,
                 input = "ping",
-                max_output_tokens = 1
+                max_output_tokens = 16
             };
 
             using var request = new HttpRequestMessage(HttpMethod.Post, ResponsesEndpoint);
@@ -60,6 +61,12 @@ public class ApiTestService
 
             var response = await client.SendAsync(request, token);
             var success = response.IsSuccessStatusCode;
+            if (!success)
+            {
+                var body = await response.Content.ReadAsStringAsync(token);
+                var snippet = body.Length > 200 ? body[..200] : body;
+                Log.Warning("OpenAI API test failed http={Status} body={Body}", (int)response.StatusCode, snippet);
+            }
 
             return new ApiTestResult
             {
@@ -70,7 +77,7 @@ public class ApiTestService
         }
         catch (TaskCanceledException)
         {
-            return new ApiTestResult { Success = false, Message = "タイムアウト" };
+            return new ApiTestResult { Success = false, Message = "タイムアウトしました" };
         }
         catch (Exception ex)
         {
@@ -89,7 +96,7 @@ public class ApiTestService
         var ttsEndpoint = ResolveAzureTtsEndpoint(region, customSubdomain);
         if (string.IsNullOrWhiteSpace(ttsEndpoint))
         {
-            return new ApiTestResult { Success = false, Message = "Azure設定が不足しています" };
+            return new ApiTestResult { Success = false, Message = "Azure設定が不正です" };
         }
 
         try
@@ -117,7 +124,7 @@ public class ApiTestService
         }
         catch (TaskCanceledException)
         {
-            return new ApiTestResult { Success = false, Message = "タイムアウト" };
+            return new ApiTestResult { Success = false, Message = "タイムアウトしました" };
         }
         catch (Exception ex)
         {
@@ -286,24 +293,7 @@ public class ApiTestService
             return null;
         }
 
-        var preferred = new[]
-        {
-            "gpt-4o-mini",
-            "gpt-4o",
-            "o4-mini",
-            "o3-mini"
-        };
-
-        foreach (var name in preferred)
-        {
-            var match = modelIds.FirstOrDefault(id => string.Equals(id, name, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(match))
-            {
-                return match;
-            }
-        }
-
-        return modelIds.FirstOrDefault(id => id.StartsWith("gpt-", StringComparison.OrdinalIgnoreCase) ||
-                                            id.StartsWith("o", StringComparison.OrdinalIgnoreCase));
+        var target = modelIds.FirstOrDefault(id => string.Equals(id, "gpt-5-nano", StringComparison.OrdinalIgnoreCase));
+        return string.IsNullOrWhiteSpace(target) ? null : target;
     }
 }

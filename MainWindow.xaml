@@ -114,6 +114,9 @@
                                 <Button Content="Azureキーを確認"
                                         Style="{StaticResource SecondaryButtonStyle}"
                                         Command="{Binding AzureTestCommand}" />
+                                <Border Background="{Binding AzureTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,8,0,0">
+                                    <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azure: {0}}" Foreground="{Binding AzureTestSummaryBrush}" />
+                                </Border>
                             </StackPanel>
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=6}">
@@ -127,6 +130,9 @@
                                 <Button Content="OpenAIキーを確認"
                                         Style="{StaticResource SecondaryButtonStyle}"
                                         Command="{Binding OpenAiTestCommand}" />
+                                <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,8,0,8">
+                                    <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
+                                </Border>
 
                                 <Expander Header="詳細 (Advanced)">
                                     <StackPanel>
@@ -137,8 +143,12 @@
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=7}">
                                 <TextBlock Text="必要ならデバイスログを取得してください (任意)。" Margin="0,0,0,8" />
-                                <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Margin="0,0,0,6" />
-                                <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azure: {0}}" Margin="0,0,0,12" />
+                                <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,0,0,6">
+                                    <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
+                                </Border>
+                                <Border Background="{Binding AzureTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,0,0,12">
+                                    <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azure: {0}}" Foreground="{Binding AzureTestSummaryBrush}" />
+                                </Border>
                                 <Button Content="デバイスログを取得"
                                         Style="{StaticResource SecondaryButtonStyle}"
                                         Command="{Binding DumpDeviceLogCommand}"
@@ -174,6 +184,7 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Content="中止" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CancelCommand}" IsEnabled="{Binding CanCancel}" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
+                <Button Content="中断して完了" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding AbortToCompleteCommand}" Visibility="{Binding IsNotCompleteStep, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
                 <Button Content="閉じる" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CloseCommand}" Margin="0,0,12,0" />
                 <Button Content="{Binding PrimaryButtonText}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding PrimaryCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
             </StackPanel>

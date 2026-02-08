@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Media;
 using AiStackchanSetup.Infrastructure;
 using AiStackchanSetup.Models;
 using AiStackchanSetup.Services;
@@ -27,6 +28,7 @@ public class MainViewModel : BindableBase
     private readonly StepController _stepController;
     private readonly StepContext _stepContext;
     private CancellationTokenSource? _stepCts;
+    private bool _abortToCompleteRequested;
 
     private int _totalSteps;
     private int _step = 1;
@@ -65,6 +67,10 @@ public class MainViewModel : BindableBase
     private string _apiTestSummary = "未実行";
     private string _azureTestSummary = "未実行";
     private string _deviceTestSummary = "未実行";
+    private Brush _apiTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+    private Brush _apiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+    private Brush _azureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+    private Brush _azureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
 
     private string _lastFlashResult = "";
     private string _lastApiResult = "";
@@ -96,6 +102,7 @@ public class MainViewModel : BindableBase
         _totalSteps = _stepController.TotalSteps;
 
         PrimaryCommand = new AsyncRelayCommand(PrimaryAsync, () => !IsBusy);
+        AbortToCompleteCommand = new AsyncRelayCommand(AbortToCompleteAsync);
         CloseCommand = new RelayCommand(() => Application.Current.Shutdown());
         CancelCommand = new RelayCommand(CancelCurrent);
         BackCommand = new RelayCommand(GoBack, () => Step > 1 && !IsBusy);
@@ -125,6 +132,8 @@ public class MainViewModel : BindableBase
                 BackCommand.RaiseCanExecuteChanged();
                 SkipCommand.RaiseCanExecuteChanged();
                 RaisePropertyChanged(nameof(StepIndicator));
+                RaisePropertyChanged(nameof(IsCompleteStep));
+                RaisePropertyChanged(nameof(IsNotCompleteStep));
             }
         }
     }
@@ -305,6 +314,10 @@ public class MainViewModel : BindableBase
 
     public string FlashLogPath => LogService.FlashLogPath;
     public string DeviceLogPath => LogService.DeviceLogPath;
+    public string LogDirectory => LogService.LogDirectory;
+
+    public bool IsCompleteStep => Step == 8;
+    public bool IsNotCompleteStep => Step != 8;
 
     public string ConfigWifiSsid
     {
@@ -341,6 +354,8 @@ public class MainViewModel : BindableBase
                 _openAiTestedKey = "";
                 _openAiTestedOk = false;
                 ApiTestSummary = "未実行";
+                ApiTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+                ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
             }
         }
     }
@@ -399,10 +414,34 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _apiTestSummary, value);
     }
 
+    public Brush ApiTestSummaryBrush
+    {
+        get => _apiTestSummaryBrush;
+        set => SetProperty(ref _apiTestSummaryBrush, value);
+    }
+
+    public Brush ApiTestSummaryBackground
+    {
+        get => _apiTestSummaryBackground;
+        set => SetProperty(ref _apiTestSummaryBackground, value);
+    }
+
     public string AzureTestSummary
     {
         get => _azureTestSummary;
         set => SetProperty(ref _azureTestSummary, value);
+    }
+
+    public Brush AzureTestSummaryBrush
+    {
+        get => _azureTestSummaryBrush;
+        set => SetProperty(ref _azureTestSummaryBrush, value);
+    }
+
+    public Brush AzureTestSummaryBackground
+    {
+        get => _azureTestSummaryBackground;
+        set => SetProperty(ref _azureTestSummaryBackground, value);
     }
 
     public string DeviceTestSummary
@@ -440,6 +479,7 @@ public class MainViewModel : BindableBase
     public RelayCommand BackCommand { get; }
     public RelayCommand SkipCommand { get; }
     public AsyncRelayCommand PrimaryCommand { get; }
+    public AsyncRelayCommand AbortToCompleteCommand { get; }
     public AsyncRelayCommand AzureTestCommand { get; }
     public AsyncRelayCommand OpenAiTestCommand { get; }
     public AsyncRelayCommand DumpDeviceLogCommand { get; }
@@ -462,6 +502,7 @@ public class MainViewModel : BindableBase
         }
         catch (OperationCanceledException)
         {
+            Log.Information("Step cancelled by user");
             result = StepResult.Cancelled();
         }
         finally
@@ -475,12 +516,20 @@ public class MainViewModel : BindableBase
         {
             _stepController.MoveNext();
             _stepController.SyncStepMetadata();
+            if (_abortToCompleteRequested)
+            {
+                await ExecuteAbortToCompleteAsync();
+            }
             return;
         }
 
         if (result.Status == StepStatus.Cancelled)
         {
             StatusMessage = "中止しました";
+            if (_abortToCompleteRequested)
+            {
+                await ExecuteAbortToCompleteAsync();
+            }
             return;
         }
 
@@ -493,11 +542,45 @@ public class MainViewModel : BindableBase
         {
             PrimaryButtonText = "再試行";
         }
+
+        if (_abortToCompleteRequested)
+        {
+            await ExecuteAbortToCompleteAsync();
+        }
     }
 
     private void CancelCurrent()
     {
         _stepCts?.Cancel();
+    }
+
+    private async Task AbortToCompleteAsync()
+    {
+        _abortToCompleteRequested = true;
+        if (IsBusy)
+        {
+            CancelCurrent();
+            return;
+        }
+
+        await ExecuteAbortToCompleteAsync();
+    }
+
+    private async Task ExecuteAbortToCompleteAsync()
+    {
+        _abortToCompleteRequested = false;
+        try
+        {
+            await CreateSupportPackAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Abort to complete failed");
+        }
+
+        Step = 8;
+        _stepController.SyncStepMetadata();
+        StatusMessage = "完了画面に移動しました";
     }
 
     private void GoBack()
@@ -540,7 +623,13 @@ public class MainViewModel : BindableBase
                     baseDelay: TimeSpan.FromMilliseconds(400),
                     backoffFactor: 2,
                     CancellationToken.None);
-                ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
+                ApiTestSummary = apiResult.Success ? "利用可能です" : $"利用できません: {apiResult.Message}";
+                ApiTestSummaryBrush = apiResult.Success
+                    ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                    : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                ApiTestSummaryBackground = apiResult.Success
+                    ? new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3))
+                    : new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
                 _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
                 if (apiResult.Success)
                 {
@@ -551,7 +640,9 @@ public class MainViewModel : BindableBase
             }
             else
             {
-                ApiTestSummary = "OK (確認済み)";
+                ApiTestSummary = "利用可能です (確認済み)";
+                ApiTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
+                ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3));
             }
 
             var azureOk = _azureTestedOk &&
@@ -562,6 +653,8 @@ public class MainViewModel : BindableBase
             if (string.IsNullOrWhiteSpace(AzureKey))
             {
                 AzureTestSummary = "未入力";
+                AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+                AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
                 azureOk = true;
             }
             else if (!azureOk)
@@ -576,11 +669,19 @@ public class MainViewModel : BindableBase
                 if (azureResult.Message == "未入力")
                 {
                     AzureTestSummary = "未入力";
+                    AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+                    AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
                     azureOk = true;
                 }
                 else
                 {
-                    AzureTestSummary = azureResult.Success ? "OK" : azureResult.Message;
+                    AzureTestSummary = azureResult.Success ? "利用可能です" : $"利用できません: {azureResult.Message}";
+                    AzureTestSummaryBrush = azureResult.Success
+                        ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                        : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                    AzureTestSummaryBackground = azureResult.Success
+                        ? new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3))
+                        : new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
                 }
 
                 if (azureResult.Success)
@@ -594,7 +695,9 @@ public class MainViewModel : BindableBase
             }
             else
             {
-                AzureTestSummary = "OK (確認済み)";
+                AzureTestSummary = "利用可能です (確認済み)";
+                AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A));
+                AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3));
             }
 
             // Stub: 端末側TEST_RUN未実装の場合はSkippedとして扱う
@@ -657,10 +760,18 @@ public class MainViewModel : BindableBase
             if (azureResult.Message == "未入力")
             {
                 AzureTestSummary = "未入力";
+                AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+                AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
             }
             else
             {
-                AzureTestSummary = azureResult.Success ? "OK" : azureResult.Message;
+                AzureTestSummary = azureResult.Success ? "利用可能です" : $"利用できません: {azureResult.Message}";
+                AzureTestSummaryBrush = azureResult.Success
+                    ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                    : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                AzureTestSummaryBackground = azureResult.Success
+                    ? new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3))
+                    : new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
             }
 
             if (azureResult.Success)
@@ -671,7 +782,7 @@ public class MainViewModel : BindableBase
                 _azureTestedOk = true;
             }
 
-            StatusMessage = "Azureキー確認完了";
+            StatusMessage = azureResult.Success ? "Azureキー: 利用可能です" : $"Azureキー: 利用できません ({azureResult.Message})";
         }
         catch (Exception ex)
         {
@@ -700,14 +811,20 @@ public class MainViewModel : BindableBase
                 baseDelay: TimeSpan.FromMilliseconds(400),
                 backoffFactor: 2,
                 CancellationToken.None);
-            ApiTestSummary = apiResult.Success ? "OK" : apiResult.Message;
+            ApiTestSummary = apiResult.Success ? "利用可能です" : $"利用できません: {apiResult.Message}";
+            ApiTestSummaryBrush = apiResult.Success
+                ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+            ApiTestSummaryBackground = apiResult.Success
+                ? new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3))
+                : new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
             _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
             if (apiResult.Success)
             {
                 _openAiTestedKey = ConfigOpenAiKey;
                 _openAiTestedOk = true;
             }
-            StatusMessage = "OpenAIキー確認完了";
+            StatusMessage = apiResult.Success ? "OpenAIキー: 利用可能です" : $"OpenAIキー: 利用できません ({apiResult.Message})";
         }
         catch (Exception ex)
         {
@@ -767,6 +884,8 @@ public class MainViewModel : BindableBase
         _azureTestedSubdomain = "";
         _azureTestedOk = false;
         AzureTestSummary = "未実行";
+        AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+        AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
     }
 
     private void BrowseFirmware()

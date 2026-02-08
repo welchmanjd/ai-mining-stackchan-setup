@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AiStackchanSetup.ViewModels;
+using Serilog;
 
 namespace AiStackchanSetup.Steps;
 
@@ -46,7 +47,11 @@ public sealed class StepController
         step.OnEnter(_context);
         try
         {
-            return await step.ExecuteAsync(_context, token);
+            Log.Information("Step start {Index}:{Title}", step.Index, step.Title);
+            var result = await step.ExecuteAsync(_context, token);
+            Log.Information("Step end {Index}:{Title} status={Status} canRetry={CanRetry} error={Error}",
+                step.Index, step.Title, result.Status, result.CanRetry, result.ErrorMessage);
+            return result;
         }
         finally
         {

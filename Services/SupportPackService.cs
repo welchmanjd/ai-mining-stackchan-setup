@@ -21,16 +21,18 @@ public class SupportPackService
         {
             using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
 
+            var summaryJson = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
+            {
+                var entry = zip.CreateEntry("summary.json");
+                await using var stream = entry.Open();
+                await using var writer = new StreamWriter(stream);
+                await writer.WriteAsync(summaryJson);
+            }
+
             await AddLatestAppLogAsync(zip, config);
             await AddFileIfExistsRedactedAsync(zip, LogService.FlashLogPath, "flash_esptool.log", config);
             await AddFileIfExistsRedactedAsync(zip, LogService.DeviceLogPath, "device_log.txt", config);
             await AddFileIfExistsRedactedAsync(zip, LogService.SerialLogPath, "serial_comm.log", config);
-
-            var summaryJson = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
-            var entry = zip.CreateEntry("summary.json");
-            await using var stream = entry.Open();
-            await using var writer = new StreamWriter(stream);
-            await writer.WriteAsync(summaryJson);
         }
         catch (Exception ex)
         {
@@ -62,12 +64,32 @@ public class SupportPackService
     {
         if (File.Exists(path))
         {
-            var raw = await File.ReadAllTextAsync(path);
+            var raw = await ReadAllTextSharedAsync(path);
             var sanitized = AiStackchanSetup.Infrastructure.SensitiveDataRedactor.Redact(raw, config);
             var entry = zip.CreateEntry(entryName);
             await using var stream = entry.Open();
             await using var writer = new StreamWriter(stream);
             await writer.WriteAsync(sanitized);
+            return;
+        }
+        var missingEntry = zip.CreateEntry(entryName);
+        await using var missingStream = missingEntry.Open();
+        await using var missingWriter = new StreamWriter(missingStream);
+        await missingWriter.WriteAsync($"Log file not found: {path}");
+    }
+
+    private static async Task<string> ReadAllTextSharedAsync(string path)
+    {
+        try
+        {
+            await using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(fs);
+            return await reader.ReadToEndAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to read log file {Path}", path);
+            return $"Failed to read log file: {path}";
         }
     }
 }
