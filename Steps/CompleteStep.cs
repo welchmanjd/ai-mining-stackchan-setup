@@ -6,7 +6,7 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class CompleteStep : StepBase
 {
-    public override int Index => 8;
+    public override int Index => 7;
     public override string Title => "完了";
     public override string Description => "セットアップ完了です。";
     public override string PrimaryActionText => "閉じる";

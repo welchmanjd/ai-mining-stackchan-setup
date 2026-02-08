@@ -51,6 +51,7 @@ public class MainViewModel : BindableBase
     private string _deviceStatusSummary = "未取得";
     private string _deviceInfoJson = "";
     private string _lastProtocolResponse = "";
+    private string _deviceLogPath = "";
 
     private string _configWifiSsid = "";
     private string _configWifiPassword = "";
@@ -86,6 +87,7 @@ public class MainViewModel : BindableBase
     public MainViewModel()
     {
         Ports = new ObservableCollection<SerialPortInfo>();
+        _deviceLogPath = LogService.GetLatestDeviceLogPath() ?? "";
 
         _stepContext = new StepContext(this, _serialService, _flashService, _apiTestService, _supportPackService, _retryPolicy, _timeouts);
         _stepController = new StepController(this, _stepContext, new IStep[]
@@ -96,7 +98,6 @@ public class MainViewModel : BindableBase
             new DucoStep(),
             new AzureStep(),
             new OpenAiConfigStep(),
-            new LogStep(),
             new CompleteStep()
         });
         _totalSteps = _stepController.TotalSteps;
@@ -313,11 +314,15 @@ public class MainViewModel : BindableBase
     }
 
     public string FlashLogPath => LogService.FlashLogPath;
-    public string DeviceLogPath => LogService.DeviceLogPath;
+    public string DeviceLogPath
+    {
+        get => _deviceLogPath;
+        set => SetProperty(ref _deviceLogPath, value);
+    }
     public string LogDirectory => LogService.LogDirectory;
 
-    public bool IsCompleteStep => Step == 8;
-    public bool IsNotCompleteStep => Step != 8;
+    public bool IsCompleteStep => Step == 7;
+    public bool IsNotCompleteStep => Step != 7;
 
     public string ConfigWifiSsid
     {
@@ -859,11 +864,18 @@ public class MainViewModel : BindableBase
                 return;
             }
 
-            Directory.CreateDirectory(LogService.LogDirectory);
             var config = BuildDeviceConfig();
             var sanitized = SensitiveDataRedactor.Redact(deviceLog, config);
-            await File.WriteAllTextAsync(LogService.DeviceLogPath, sanitized);
-            StatusMessage = $"デバイスログを保存しました: {LogService.DeviceLogPath}";
+            var path = LogService.CreateDeviceLogPath();
+            await File.WriteAllTextAsync(path, sanitized);
+            DeviceLogPath = path;
+            StatusMessage = $"デバイスログを保存しました: {path}";
+        }
+        catch (SerialCommandException ex)
+        {
+            Log.Warning(ex, "Device log dump not supported");
+            ErrorMessage = "デバイスがLOG_DUMPに対応していません";
+            _lastError = ex.Message;
         }
         catch (Exception ex)
         {
@@ -982,13 +994,24 @@ public class MainViewModel : BindableBase
                 Config = config.ToMasked()
             };
 
-            var deviceLog = SelectedPort != null
-                ? await _serialService.DumpLogAsync(SelectedPort.PortName)
-                : string.Empty;
+            string deviceLog;
+            try
+            {
+                deviceLog = SelectedPort != null
+                    ? await _serialService.DumpLogAsync(SelectedPort.PortName)
+                    : string.Empty;
+            }
+            catch (SerialCommandException ex)
+            {
+                Log.Warning(ex, "Device log dump not supported");
+                deviceLog = string.Empty;
+            }
             if (!string.IsNullOrWhiteSpace(deviceLog))
             {
                 var sanitized = SensitiveDataRedactor.Redact(deviceLog, config);
-                await File.WriteAllTextAsync(LogService.DeviceLogPath, sanitized);
+                var path = LogService.CreateDeviceLogPath();
+                await File.WriteAllTextAsync(path, sanitized);
+                DeviceLogPath = path;
             }
 
             var zipPath = await _supportPackService.CreateSupportPackAsync(summary, config);

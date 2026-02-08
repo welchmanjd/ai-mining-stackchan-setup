@@ -31,7 +31,15 @@ public class SupportPackService
 
             await AddLatestAppLogAsync(zip, config);
             await AddFileIfExistsRedactedAsync(zip, LogService.FlashLogPath, "flash_esptool.log", config);
-            await AddFileIfExistsRedactedAsync(zip, LogService.DeviceLogPath, "device_log.txt", config);
+            var latestDeviceLog = LogService.GetLatestDeviceLogPath();
+            if (!string.IsNullOrWhiteSpace(latestDeviceLog))
+            {
+                await AddFileIfExistsRedactedAsync(zip, latestDeviceLog, "device_log.txt", config);
+            }
+            else
+            {
+                await AddFileIfExistsRedactedAsync(zip, LogService.DeviceLogPath, "device_log.txt", config);
+            }
             await AddFileIfExistsRedactedAsync(zip, LogService.SerialLogPath, "serial_comm.log", config);
         }
         catch (Exception ex)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using Serilog;
 
 namespace AiStackchanSetup.Services;
@@ -19,6 +20,7 @@ public static class LogService
     public static void Initialize()
     {
         Directory.CreateDirectory(LogDirectory);
+        ClearSessionLogs();
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
@@ -36,5 +38,53 @@ public static class LogService
     {
         Log.Information("App shutting down");
         Log.CloseAndFlush();
+    }
+
+    private static void ClearSessionLogs()
+    {
+        TryDelete(SerialLogPath);
+        TryDelete(FlashLogPath);
+
+        var todayAppLog = Path.Combine(LogDirectory, $"app-{DateTime.Now:yyyyMMdd}.log");
+        TryDelete(todayAppLog);
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // best-effort cleanup
+        }
+    }
+
+    public static string CreateDeviceLogPath()
+    {
+        Directory.CreateDirectory(LogDirectory);
+        return Path.Combine(LogDirectory, $"device_log_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+    }
+
+    public static string? GetLatestDeviceLogPath()
+    {
+        if (!Directory.Exists(LogDirectory))
+        {
+            return null;
+        }
+
+        var latest = Directory.GetFiles(LogDirectory, "device_log_*.txt")
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(latest))
+        {
+            return latest;
+        }
+
+        return File.Exists(DeviceLogPath) ? DeviceLogPath : null;
     }
 }

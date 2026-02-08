@@ -270,8 +270,14 @@ public class SerialService
         return DumpLogAsync(portName, CancellationToken.None);
     }
 
-    public async Task<string> DumpLogAsync(string portName, CancellationToken token)
+    public Task<string> DumpLogAsync(string portName, CancellationToken token)
     {
+        return Task.Run(() => DumpLogCore(portName, token), token);
+    }
+
+    private string DumpLogCore(string portName, CancellationToken token)
+    {
+        var sb = new StringBuilder();
         try
         {
             using var serial = new SerialPort(portName, BaudRate)
@@ -283,38 +289,67 @@ public class SerialService
             };
 
             serial.Open();
-            await using var writer = new StreamWriter(serial.BaseStream, Utf8NoBom) { AutoFlush = true };
             using var reader = new StreamReader(serial.BaseStream, Utf8NoBom);
 
-            await writer.WriteLineAsync("LOG_DUMP");
+            serial.WriteLine("LOG_DUMP");
 
-            var sb = new StringBuilder();
             var lastRead = DateTime.UtcNow;
             var hardLimit = DateTime.UtcNow.AddSeconds(10);
+            var originalReadTimeout = serial.ReadTimeout;
+            serial.ReadTimeout = 500;
 
-            while (DateTime.UtcNow < hardLimit)
+            try
             {
-                token.ThrowIfCancellationRequested();
-                var line = await ReadLineAsync(reader, TimeSpan.FromMilliseconds(500), token);
-                if (line == null)
+                while (DateTime.UtcNow < hardLimit)
                 {
-                    if (DateTime.UtcNow - lastRead > TimeSpan.FromSeconds(1))
+                    token.ThrowIfCancellationRequested();
+                    string? line = null;
+                    try
                     {
-                        break;
+                        line = reader.ReadLine();
+                    }
+                    catch (TimeoutException)
+                    {
+                        line = null;
+                    }
+                    if (line == null)
+                    {
+                        if (DateTime.UtcNow - lastRead > TimeSpan.FromSeconds(1))
+                        {
+                            break;
+                        }
+
+                        continue;
                     }
 
-                    continue;
-                }
+                    lastRead = DateTime.UtcNow;
+                    var trimmed = line.Trim();
+                    if (trimmed.StartsWith("@ERR", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new SerialCommandException(trimmed["@ERR".Length..].Trim(), trimmed);
+                    }
+                    if (sb.Length > 0)
+                    {
+                        sb.AppendLine();
+                    }
 
-                lastRead = DateTime.UtcNow;
-                if (sb.Length > 0)
-                {
-                    sb.AppendLine();
+                    sb.Append(line);
                 }
-
-                sb.Append(line);
+            }
+            finally
+            {
+                serial.ReadTimeout = originalReadTimeout;
             }
 
+            return sb.ToString();
+        }
+        catch (SerialCommandException)
+        {
+            throw;
+        }
+        catch (ObjectDisposedException ex)
+        {
+            Log.Warning(ex, "LOG_DUMP aborted (port closed)");
             return sb.ToString();
         }
         catch (Exception ex)
@@ -615,16 +650,4 @@ public class SerialService
                key.Equals("openai_key", StringComparison.OrdinalIgnoreCase);
     }
 
-    private sealed class SerialCommandException : Exception
-    {
-        public SerialCommandException(string reason, string line)
-            : base(reason)
-        {
-            Reason = reason;
-            Line = line;
-        }
-
-        public string Reason { get; }
-        public string Line { get; }
-    }
 }
