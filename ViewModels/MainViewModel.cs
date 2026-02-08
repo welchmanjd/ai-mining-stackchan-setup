@@ -1026,35 +1026,30 @@ public class MainViewModel : BindableBase
 
     private static string ResolveDefaultFirmwarePath()
     {
-        var baseDir = AppContext.BaseDirectory;
-        var firmwareDir = Path.Combine(baseDir, "Resources", "firmware");
-        var publicBin = Path.Combine(firmwareDir, "stackchan_core2_public.bin");
-        if (File.Exists(publicBin))
+        var exeDir = GetExecutableDirectory();
+        if (string.IsNullOrWhiteSpace(exeDir))
         {
-            return publicBin;
+            return string.Empty;
         }
 
-        // Fallback: dev-time location (repo Resources/firmware)
-        var current = new DirectoryInfo(baseDir);
-        for (var i = 0; i < 6 && current != null; i++)
+        var basePublic = Path.Combine(exeDir, "stackchan_core2_public.bin");
+        if (File.Exists(basePublic))
         {
-            var repoFirmwareDir = Path.Combine(current.FullName, "Resources", "firmware");
-            var repoPublic = Path.Combine(repoFirmwareDir, "stackchan_core2_public.bin");
-            if (File.Exists(repoPublic))
-            {
-                return repoPublic;
-            }
-
-            var repoDefault = Path.Combine(repoFirmwareDir, "stackchan_core2.bin");
-            if (File.Exists(repoDefault))
-            {
-                return repoDefault;
-            }
-
-            current = current.Parent;
+            return basePublic;
         }
 
-        return Path.Combine(firmwareDir, "stackchan_core2.bin");
+        return string.Empty;
+    }
+
+    private static string? GetExecutableDirectory()
+    {
+        var exePath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(exePath))
+        {
+            return null;
+        }
+
+        return Path.GetDirectoryName(exePath);
     }
 
     private static string BuildFirmwareInfoText(string path)

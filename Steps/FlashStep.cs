@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,9 +29,16 @@ public sealed class FlashStep : StepBase
             return StepResult.Skipped();
         }
 
-        if (!File.Exists(vm.FirmwarePath))
+        if (string.IsNullOrWhiteSpace(vm.FirmwarePath) || !File.Exists(vm.FirmwarePath))
         {
-            return StepResult.Fail("ファームウェアファイルが見つかりません", canRetry: false);
+            vm.ErrorMessage = "ファームウェアstackchan_core2_public.binがありません";
+            return StepResult.Fail("ファームウェアが見つかりません", canRetry: false);
+        }
+
+        if (!Path.GetFileName(vm.FirmwarePath).Equals("stackchan_core2_public.bin", StringComparison.OrdinalIgnoreCase))
+        {
+            vm.ErrorMessage = "stackchan_core2_public.binのみ対応しています";
+            return StepResult.Fail("ファームウェアが無効です", canRetry: false);
         }
 
         if (!int.TryParse(vm.FlashBaud, out var baud))
