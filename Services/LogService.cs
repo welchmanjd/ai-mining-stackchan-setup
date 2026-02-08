@@ -12,7 +12,7 @@ public static class LogService
         "AiStackchanSetup",
         "Logs");
 
-    public static readonly string AppLogRollingPath = Path.Combine(LogDirectory, "app-.log");
+    public static readonly string AppLogPath = Path.Combine(LogDirectory, "app.log");
     public static readonly string FlashLogPath = Path.Combine(LogDirectory, "flash_esptool.log");
     public static readonly string DeviceLogPath = Path.Combine(LogDirectory, "device_log.txt");
     public static readonly string SerialLogPath = Path.Combine(LogDirectory, "serial_comm.log");
@@ -24,9 +24,7 @@ public static class LogService
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
-            .WriteTo.File(AppLogRollingPath,
-                rollingInterval: RollingInterval.Day,
-                retainedFileCountLimit: 7,
+            .WriteTo.File(AppLogPath,
                 shared: true,
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] {Level:u3} {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
@@ -45,8 +43,7 @@ public static class LogService
         TryDelete(SerialLogPath);
         TryDelete(FlashLogPath);
 
-        var todayAppLog = Path.Combine(LogDirectory, $"app-{DateTime.Now:yyyyMMdd}.log");
-        TryDelete(todayAppLog);
+        TryDelete(AppLogPath);
     }
 
     private static void TryDelete(string path)

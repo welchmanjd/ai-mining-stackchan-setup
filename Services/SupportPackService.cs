@@ -52,20 +52,7 @@ public class SupportPackService
 
     private static async Task AddLatestAppLogAsync(ZipArchive zip, DeviceConfig config)
     {
-        var dir = LogService.LogDirectory;
-        var latest = Directory.GetFiles(dir, "app-*.log")
-            .OrderByDescending(File.GetLastWriteTimeUtc)
-            .FirstOrDefault();
-
-        if (!string.IsNullOrWhiteSpace(latest))
-        {
-            await AddFileIfExistsRedactedAsync(zip, latest, "app.log", config);
-        }
-        else
-        {
-            var fallback = Path.Combine(dir, "app.log");
-            await AddFileIfExistsRedactedAsync(zip, fallback, "app.log", config);
-        }
+        await AddFileIfExistsRedactedAsync(zip, LogService.AppLogPath, "app.log", config);
     }
 
     private static async Task AddFileIfExistsRedactedAsync(ZipArchive zip, string path, string entryName, DeviceConfig config)
