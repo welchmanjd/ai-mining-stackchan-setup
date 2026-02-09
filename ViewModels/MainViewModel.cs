@@ -652,6 +652,7 @@ public class MainViewModel : BindableBase
         if (result.Status == StepStatus.Success || result.Status == StepStatus.Skipped)
         {
             _stepController.MoveNext();
+            AutoSkipOptionalSteps();
             _stepController.SyncStepMetadata();
             if (_abortToCompleteRequested)
             {
@@ -686,6 +687,31 @@ public class MainViewModel : BindableBase
         }
     }
 
+    private void AutoSkipOptionalSteps()
+    {
+        while (true)
+        {
+            if (Step == 5 && (!WifiEnabled || !MiningEnabled))
+            {
+                Step = 6;
+                continue;
+            }
+
+            if (Step == 6 && !(WifiEnabled && (MiningEnabled || AiEnabled)))
+            {
+                Step = 7;
+                continue;
+            }
+
+            if (Step == 7 && (!WifiEnabled || !AiEnabled))
+            {
+                Step = 8;
+                continue;
+            }
+
+            break;
+        }
+    }
     private void CancelCurrent()
     {
         _stepCts?.Cancel();

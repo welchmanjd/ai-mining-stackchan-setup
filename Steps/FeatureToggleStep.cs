@@ -77,7 +77,14 @@ public sealed class FeatureToggleStep : StepBase
                 token);
             if (cfg.Success && !string.IsNullOrWhiteSpace(cfg.Json))
             {
+                // Keep user's current toggle selections from Step 3.
+                var wifiEnabled = vm.WifiEnabled;
+                var miningEnabled = vm.MiningEnabled;
+                var aiEnabled = vm.AiEnabled;
                 vm.ApplyConfigSnapshot(cfg.Json);
+                vm.WifiEnabled = wifiEnabled;
+                vm.MiningEnabled = miningEnabled;
+                vm.AiEnabled = aiEnabled;
             }
 
             vm.StatusMessage = "デバイス設定の読み込みが完了しました。";

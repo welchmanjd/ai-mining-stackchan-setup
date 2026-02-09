@@ -67,7 +67,7 @@ public class SerialService
     {
         try
         {
-            var response = await SendCommandAsync(portName, "HELLO", TimeSpan.FromSeconds(5), token);
+            var response = await SendCommandAsync(portName, "HELLO", TimeSpan.FromSeconds(8), token);
             if (response.StartsWith("@OK HELLO", StringComparison.OrdinalIgnoreCase))
             {
                 return new HelloResult { Success = true, Message = "OK" };
@@ -94,7 +94,7 @@ public class SerialService
     {
         try
         {
-            var response = await SendCommandAsync(portName, "PING", TimeSpan.FromSeconds(5), token);
+            var response = await SendCommandAsync(portName, "PING", TimeSpan.FromSeconds(8), token);
             if (response.StartsWith("@OK PONG", StringComparison.OrdinalIgnoreCase))
             {
                 return new CommandResult { Success = true, Message = "OK" };
@@ -119,9 +119,14 @@ public class SerialService
 
     public async Task<DeviceInfoResult> GetInfoAsync(string portName, CancellationToken token)
     {
+        return await GetInfoAsync(portName, TimeSpan.FromSeconds(8), token);
+    }
+
+    public async Task<DeviceInfoResult> GetInfoAsync(string portName, TimeSpan timeout, CancellationToken token)
+    {
         try
         {
-            var response = await SendCommandAsync(portName, "GET INFO", TimeSpan.FromSeconds(5), token);
+            var response = await SendCommandAsync(portName, "GET INFO", timeout, token);
             if (!response.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
             {
                 return new DeviceInfoResult { Success = false, Message = "応答が期待形式ではありません" };
@@ -155,7 +160,7 @@ public class SerialService
     {
         try
         {
-            var response = await SendCommandAsync(portName, "GET CFG", TimeSpan.FromSeconds(5), token);
+            var response = await SendCommandAsync(portName, "GET CFG", TimeSpan.FromSeconds(8), token);
             if (!response.StartsWith("@CFG", StringComparison.OrdinalIgnoreCase))
             {
                 return (false, "応答が期待形式ではありません", string.Empty);
@@ -321,7 +326,7 @@ public class SerialService
                 return new ConfigResult { Success = false, Message = "保存結果が不明です" };
             }
 
-            var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(5), token);
+            var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(10), token);
             if (!rebootResponse.StartsWith("@OK REBOOT", StringComparison.OrdinalIgnoreCase))
             {
                 return new ConfigResult { Success = false, Message = "再起動結果が不明です" };
@@ -466,10 +471,16 @@ public class SerialService
                 NewLine = "\n",
                 Encoding = Utf8NoBom,
                 ReadTimeout = (int)timeout.TotalMilliseconds,
-                WriteTimeout = (int)timeout.TotalMilliseconds
+                WriteTimeout = (int)timeout.TotalMilliseconds,
+                Handshake = Handshake.None,
+                DtrEnable = false,
+                RtsEnable = false
             };
 
             serial.Open();
+            try { serial.DiscardInBuffer(); } catch { /* ignore */ }
+            try { serial.DiscardOutBuffer(); } catch { /* ignore */ }
+            await Task.Delay(120, token);
             writer = new StreamWriter(serial.BaseStream, Utf8NoBom) { AutoFlush = true };
             reader = new StreamReader(serial.BaseStream, Utf8NoBom);
 
@@ -478,6 +489,21 @@ public class SerialService
             await writer.WriteLineAsync(command);
 
             line = await ReadResponseLineAsync(reader, timeout, trace, token);
+            if (line == null)
+            {
+                var bootDetected = trace.ToString().Contains("boot:", StringComparison.OrdinalIgnoreCase)
+                                   || trace.ToString().Contains("entry 0x", StringComparison.OrdinalIgnoreCase)
+                                   || trace.ToString().Contains("[MAIN] setup() start", StringComparison.OrdinalIgnoreCase)
+                                   || trace.ToString().Contains("ets Jul", StringComparison.OrdinalIgnoreCase);
+                if (bootDetected && !command.StartsWith("REBOOT", StringComparison.OrdinalIgnoreCase))
+                {
+                    trace.AppendLine("retry: boot_detected_resend");
+                    await Task.Delay(250, token);
+                    await writer.WriteLineAsync(command);
+                    line = await ReadResponseLineAsync(reader, TimeSpan.FromSeconds(3), trace, token);
+                }
+            }
+
             if (line == null)
             {
                 Log.Warning("Serial timeout for {Command}", command.Split(' ')[0]);
@@ -690,7 +716,7 @@ public class SerialService
     {
         try
         {
-            var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(5), token);
+            var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(8), token);
             if (response.StartsWith("@OK SET", StringComparison.OrdinalIgnoreCase))
             {
                 return new ConfigResult { Success = true, Message = "OK" };

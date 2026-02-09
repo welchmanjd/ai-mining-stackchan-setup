@@ -45,12 +45,21 @@ public sealed class DetectPortsStep : StepBase
                 return StepResult.Fail("ポートが見つかりません", guidance: "USB接続やドライバを確認してください。", canRetry: true);
             }
 
-            var info = await context.SerialService.GetInfoAsync(vm.SelectedPort.PortName, token);
-            if (info.Success && info.Info != null)
+            try
             {
-                vm.UpdateCurrentFirmwareInfo(info.Info);
+                using var infoCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+                infoCts.CancelAfter(TimeSpan.FromSeconds(2));
+                var info = await context.SerialService.GetInfoAsync(vm.SelectedPort.PortName, TimeSpan.FromSeconds(2), infoCts.Token);
+                if (info.Success && info.Info != null)
+                {
+                    vm.UpdateCurrentFirmwareInfo(info.Info);
+                }
+                else
+                {
+                    vm.UpdateCurrentFirmwareInfo(null);
+                }
             }
-            else
+            catch (OperationCanceledException) when (!token.IsCancellationRequested)
             {
                 vm.UpdateCurrentFirmwareInfo(null);
             }
