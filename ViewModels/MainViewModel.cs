@@ -49,6 +49,8 @@ public class MainViewModel : BindableBase
     private int _flashMode;
     private string _flashStatus = "";
     private string _firmwareInfoText = "";
+    private string _currentFirmwareInfoText = "未取得";
+    private string _firmwareCompareMessage = "";
     private string _deviceStatusSummary = "未取得";
     private string _deviceInfoJson = "";
     private string _lastProtocolResponse = "";
@@ -113,6 +115,7 @@ public class MainViewModel : BindableBase
             new WifiStep(),
             new DucoStep(),
             new AzureStep(),
+            new OpenAiKeyStep(),
             new RuntimeSettingsStep(),
             new CompleteStep()
         });
@@ -134,6 +137,7 @@ public class MainViewModel : BindableBase
 
         _stepController.SyncStepMetadata();
         FirmwareInfoText = BuildFirmwareInfoText(FirmwarePath);
+        RefreshFirmwareComparisonMessage();
     }
 
     public ObservableCollection<SerialPortInfo> Ports { get; }
@@ -233,6 +237,7 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _firmwarePath, value))
             {
                 FirmwareInfoText = BuildFirmwareInfoText(value);
+                RefreshFirmwareComparisonMessage();
             }
         }
     }
@@ -241,6 +246,18 @@ public class MainViewModel : BindableBase
     {
         get => _firmwareInfoText;
         set => SetProperty(ref _firmwareInfoText, value);
+    }
+
+    public string CurrentFirmwareInfoText
+    {
+        get => _currentFirmwareInfoText;
+        set => SetProperty(ref _currentFirmwareInfoText, value);
+    }
+
+    public string FirmwareCompareMessage
+    {
+        get => _firmwareCompareMessage;
+        set => SetProperty(ref _firmwareCompareMessage, value);
     }
 
     public string FlashBaud
@@ -337,8 +354,8 @@ public class MainViewModel : BindableBase
     }
     public string LogDirectory => LogService.LogDirectory;
 
-    public bool IsCompleteStep => Step == 8;
-    public bool IsNotCompleteStep => Step != 8;
+    public bool IsCompleteStep => Step == 9;
+    public bool IsNotCompleteStep => Step != 9;
 
     public string ConfigWifiSsid
     {
@@ -1408,6 +1425,70 @@ public class MainViewModel : BindableBase
         }
 
         return Path.GetDirectoryName(exePath);
+    }
+
+    public void UpdateCurrentFirmwareInfo(DeviceInfo? info)
+    {
+        if (info == null)
+        {
+            CurrentFirmwareInfoText = "未取得";
+            RefreshFirmwareComparisonMessage();
+            return;
+        }
+
+        var app = string.IsNullOrWhiteSpace(info.App) ? "unknown" : info.App;
+        var ver = string.IsNullOrWhiteSpace(info.Ver) ? "unknown" : info.Ver;
+        var build = string.IsNullOrWhiteSpace(info.BuildId) ? "unknown" : info.BuildId;
+        CurrentFirmwareInfoText = $"app={app} / ver={ver} / build={build}";
+        RefreshFirmwareComparisonMessage();
+    }
+
+    private void RefreshFirmwareComparisonMessage()
+    {
+        var manifest = FirmwareManifest.FromFirmwarePath(FirmwarePath);
+        if (manifest == null || string.IsNullOrWhiteSpace(manifest.Ver))
+        {
+            FirmwareCompareMessage = "";
+            return;
+        }
+
+        var currentVer = ExtractToken(CurrentFirmwareInfoText, "ver=");
+        if (string.IsNullOrWhiteSpace(currentVer) || currentVer.Equals("unknown", StringComparison.OrdinalIgnoreCase))
+        {
+            FirmwareCompareMessage = "";
+            return;
+        }
+
+        if (string.Equals(currentVer, manifest.Ver, StringComparison.OrdinalIgnoreCase))
+        {
+            FirmwareCompareMessage = "同じバージョンのファームウェアが既に書き込まれています。必要なら上書きできます。";
+            return;
+        }
+
+        FirmwareCompareMessage = $"現在 ver={currentVer} / 書込 ver={manifest.Ver}";
+    }
+
+    private static string ExtractToken(string text, string prefix)
+    {
+        if (string.IsNullOrWhiteSpace(text) || string.IsNullOrWhiteSpace(prefix))
+        {
+            return string.Empty;
+        }
+
+        var i = text.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+        if (i < 0)
+        {
+            return string.Empty;
+        }
+
+        var start = i + prefix.Length;
+        var end = text.IndexOf(" / ", start, StringComparison.Ordinal);
+        if (end < 0)
+        {
+            end = text.Length;
+        }
+
+        return text.Substring(start, end - start).Trim();
     }
 
     private static string BuildFirmwareInfoText(string path)

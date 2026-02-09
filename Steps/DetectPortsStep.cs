@@ -1,7 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using AiStackchanSetup.Infrastructure;
 using Serilog;
 
 namespace AiStackchanSetup.Steps;
@@ -19,6 +18,7 @@ public sealed class DetectPortsStep : StepBase
         vm.IsBusy = true;
         vm.StatusMessage = "USBポートを探しています...";
         vm.Step1Help = "";
+        vm.UpdateCurrentFirmwareInfo(null);
 
         try
         {
@@ -38,12 +38,21 @@ public sealed class DetectPortsStep : StepBase
             }
 
             vm.SelectedPort = context.SerialService.SelectBestPort(vm.Ports);
-
             if (vm.SelectedPort == null)
             {
-                vm.Step1Help = "見つかりません。充電専用ケーブル/USBポート/ドライバを確認してください。";
+                vm.Step1Help = "見つからない場合は、USBケーブル・USBポート・ドライバを確認してください。";
                 vm.StatusMessage = "未検出";
                 return StepResult.Fail("ポートが見つかりません", guidance: "USB接続やドライバを確認してください。", canRetry: true);
+            }
+
+            var info = await context.SerialService.GetInfoAsync(vm.SelectedPort.PortName, token);
+            if (info.Success && info.Info != null)
+            {
+                vm.UpdateCurrentFirmwareInfo(info.Info);
+            }
+            else
+            {
+                vm.UpdateCurrentFirmwareInfo(null);
             }
 
             vm.StatusMessage = $"{vm.SelectedPort.DisplayName} を検出";

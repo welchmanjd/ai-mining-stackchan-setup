@@ -6,7 +6,7 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class RuntimeSettingsStep : StepBase
 {
-    public override int Index => 7;
+    public override int Index => 8;
     public override string Title => "追加設定";
     public override string Description => "追加した設定項目を送信して保存します。";
     public override string PrimaryActionText => "送信";

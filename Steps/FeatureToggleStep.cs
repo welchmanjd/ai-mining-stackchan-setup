@@ -64,6 +64,7 @@ public sealed class FeatureToggleStep : StepBase
             }
 
             vm.DeviceStatusSummary = info.Info != null ? info.Info.ToSummary() : "未取得";
+            vm.UpdateCurrentFirmwareInfo(info.Info);
             vm.DeviceInfoJson = info.RawJson;
             vm.LastProtocolResponse = context.SerialService.LastProtocolResponse;
 

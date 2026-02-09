@@ -12,7 +12,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="M5Stack Core2 AIスタックチャン セットアップ" FontSize="20" FontWeight="SemiBold" />
-            <TextBlock Text="知識ゼロでも迷わず進める 8ステップ" Foreground="#6B7280" />
+            <TextBlock Text="知識ゼロでも迷わず進める 9ステップ" Foreground="#6B7280" />
             <TextBlock Text="{Binding StepIndicator, StringFormat=ステップ: {0}}" FontWeight="SemiBold" Margin="0,8,0,0" />
         </StackPanel>
 
@@ -55,7 +55,9 @@
                                     <RadioButton Content="書き込みをスキップして設定のみ行う" IsChecked="{Binding FlashModeSkip}" GroupName="FlashMode" />
                                 </StackPanel>
                                 <TextBlock Text="{Binding FirmwarePath, StringFormat=ファイル: {0}}" Margin="0,0,0,4" />
-                                <TextBlock Text="{Binding FirmwareInfoText, StringFormat=同梱FW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding FirmwareInfoText, StringFormat=書き込めるFW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
+                                <TextBlock Text="{Binding CurrentFirmwareInfoText, StringFormat=現在動作中FW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,4" />
+                                <TextBlock Text="{Binding FirmwareCompareMessage}" FontSize="12" Foreground="#B45309" Margin="0,0,0,8" TextWrapping="Wrap" />
                                 <ProgressBar IsIndeterminate="True" Height="8" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8" />
                                 <TextBlock Text="{Binding FlashStatus}" Foreground="#6B7280" Margin="0,0,0,8" />
 
@@ -135,22 +137,25 @@
                             </StackPanel>
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=7}">
+                                <TextBlock Text="OpenAI APIキーを設定します。" Margin="0,0,0,8" />
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="OpenAI APIキー" />
+                                    <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
+                                    <TextBlock Text="{Binding MaskedOpenAiKey, StringFormat=入力済み: {0}}" FontSize="12" Foreground="#6B7280" />
+                                </StackPanel>
+                                <Button Content="OpenAIキーを確認"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding OpenAiTestCommand}" />
+                                <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,8,0,8">
+                                    <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=8}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
-                                        <TextBlock Text="追加設定 (7項目)" Margin="0,0,0,8" />
+                                        <TextBlock Text="追加設定を入力します。" Margin="0,0,0,8" />
                                         <TextBlock Text="送信ボタンで保存して再起動します。" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
-
-                                        <StackPanel Margin="0,0,0,8">
-                                            <TextBlock Text="OpenAI APIキー" />
-                                            <PasswordBox x:Name="OpenAiKeyBox" PasswordChanged="OpenAiKeyBox_OnPasswordChanged" />
-                                            <TextBlock Text="{Binding MaskedOpenAiKey, StringFormat=入力済み: {0}}" FontSize="12" Foreground="#6B7280" />
-                                        </StackPanel>
-                                        <Button Content="OpenAIキーを確認"
-                                                Style="{StaticResource SecondaryButtonStyle}"
-                                                Command="{Binding OpenAiTestCommand}" />
-                                        <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,8,0,8">
-                                            <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
-                                        </Border>
 
                                         <StackPanel Margin="0,0,0,8">
                                             <TextBlock Text="初期プロンプト (OpenAI instructions)" />
@@ -190,7 +195,7 @@
                                 </ScrollViewer>
                             </StackPanel>
 
-                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=8}">
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=9}">
                                 <TextBlock Text="セットアップ完了!" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8" />
                                 <TextBlock Text="AIマイニングスタックチャンが起動します。" Margin="0,0,0,6" />
                                 <TextBlock Text="困ったらサポート用ログを作成してください。" Margin="0,0,0,12" />
