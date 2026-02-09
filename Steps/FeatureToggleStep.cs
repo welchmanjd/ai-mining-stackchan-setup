@@ -4,11 +4,11 @@ using System.Threading.Tasks;
 
 namespace AiStackchanSetup.Steps;
 
-public sealed class OpenAiConfigStep : StepBase
+public sealed class FeatureToggleStep : StepBase
 {
-    public override int Index => 6;
-    public override string Title => "OpenAI";
-    public override string Description => "OpenAI APIキーと機能ON/OFFを確認します。";
+    public override int Index => 3;
+    public override string Title => "機能";
+    public override string Description => "通信・マイニング・AI の有効/無効を設定します。";
     public override string PrimaryActionText => "次へ";
 
     public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
@@ -16,17 +16,12 @@ public sealed class OpenAiConfigStep : StepBase
         var vm = context.ViewModel;
         if (vm.SelectedPort == null)
         {
-            return StepResult.Fail("COMポートが未選択です", canRetry: false);
-        }
-
-        if (vm.AiEnabled && string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey))
-        {
-            return StepResult.Fail("OpenAI APIキーが未入力です", canRetry: false);
+            return StepResult.Fail("COMポートが選択されていません", canRetry: false);
         }
 
         vm.IsBusy = true;
-        vm.StatusMessage = "デバイス接続確認中...";
-        vm.DeviceStatusSummary = "確認中";
+        vm.StatusMessage = "デバイス設定を読み込み中...";
+        vm.DeviceStatusSummary = "読込中";
         vm.DeviceInfoJson = "";
         vm.LastProtocolResponse = "";
 
@@ -39,12 +34,8 @@ public sealed class OpenAiConfigStep : StepBase
                 baseDelay: TimeSpan.FromMilliseconds(400),
                 backoffFactor: 2,
                 token);
-
             if (!hello.Success)
             {
-                vm.ErrorMessage = hello.Message;
-                vm.LastError = hello.Message;
-                vm.StatusMessage = "デバイス確認に失敗しました";
                 return StepResult.Fail(hello.Message, guidance: "USB接続とCOMポート選択を確認してください。");
             }
 
@@ -55,12 +46,8 @@ public sealed class OpenAiConfigStep : StepBase
                 baseDelay: TimeSpan.FromMilliseconds(400),
                 backoffFactor: 2,
                 token);
-
             if (!ping.Success)
             {
-                vm.ErrorMessage = ping.Message;
-                vm.LastError = ping.Message;
-                vm.StatusMessage = "デバイス確認に失敗しました";
                 return StepResult.Fail(ping.Message, guidance: "USB接続とCOMポート選択を確認してください。");
             }
 
@@ -71,18 +58,15 @@ public sealed class OpenAiConfigStep : StepBase
                 baseDelay: TimeSpan.FromMilliseconds(400),
                 backoffFactor: 2,
                 token);
-
             if (!info.Success)
             {
-                vm.ErrorMessage = info.Message;
-                vm.LastError = info.Message;
-                vm.StatusMessage = "デバイス確認に失敗しました";
                 return StepResult.Fail(info.Message, guidance: "USB接続とCOMポート選択を確認してください。");
             }
 
             vm.DeviceStatusSummary = info.Info != null ? info.Info.ToSummary() : "未取得";
             vm.DeviceInfoJson = info.RawJson;
             vm.LastProtocolResponse = context.SerialService.LastProtocolResponse;
+
             var cfg = await context.RetryPolicy.ExecuteWithTimeoutAsync(
                 ct => context.SerialService.GetConfigJsonAsync(vm.SelectedPort.PortName, ct),
                 context.Timeouts.Hello,
@@ -94,12 +78,13 @@ public sealed class OpenAiConfigStep : StepBase
             {
                 vm.ApplyConfigSnapshot(cfg.Json);
             }
-            vm.StatusMessage = "OpenAI設定の確認が完了しました。";
+
+            vm.StatusMessage = "デバイス設定の読み込みが完了しました。";
             return StepResult.Ok();
         }
         catch (OperationCanceledException)
         {
-            vm.StatusMessage = "中止しました";
+            vm.StatusMessage = "中断しました";
             return StepResult.Cancelled();
         }
         catch (TimeoutException ex)
@@ -111,10 +96,10 @@ public sealed class OpenAiConfigStep : StepBase
         }
         catch (Exception ex)
         {
-            vm.ErrorMessage = "設定確認に失敗しました";
+            vm.ErrorMessage = "設定読み込みに失敗しました";
             vm.LastError = ex.Message;
-            vm.StatusMessage = "設定確認に失敗しました";
-            return StepResult.Fail("設定確認に失敗しました");
+            vm.StatusMessage = "設定読み込みに失敗しました";
+            return StepResult.Fail("設定読み込みに失敗しました");
         }
         finally
         {

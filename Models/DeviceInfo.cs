@@ -6,6 +6,7 @@ public sealed class DeviceInfo
 {
     public string App { get; init; } = string.Empty;
     public string Ver { get; init; } = string.Empty;
+    public string BuildId { get; init; } = string.Empty;
     public int Baud { get; init; }
 
     public static DeviceInfo? TryParse(string json)
@@ -25,11 +26,13 @@ public sealed class DeviceInfo
 
             var app = ReadString(doc.RootElement, "app");
             var ver = ReadString(doc.RootElement, "ver");
+            var buildId = ReadString(doc.RootElement, "build_id");
             var baud = ReadInt(doc.RootElement, "baud");
             return new DeviceInfo
             {
                 App = app,
                 Ver = ver,
+                BuildId = buildId,
                 Baud = baud
             };
         }
@@ -42,7 +45,8 @@ public sealed class DeviceInfo
     public string ToSummary()
     {
         var baudText = Baud > 0 ? Baud.ToString() : "unknown";
-        return $"app={App} / ver={Ver} / baud={baudText}";
+        var buildText = string.IsNullOrWhiteSpace(BuildId) ? "" : $" / build={BuildId}";
+        return $"app={App} / ver={Ver}{buildText} / baud={baudText}";
     }
 
     private static string ReadString(JsonElement root, string name)

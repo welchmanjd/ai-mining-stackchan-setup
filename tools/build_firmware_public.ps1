@@ -16,6 +16,32 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+$Env = $Env.Trim()
+
+function Resolve-AppVersion([string]$repoRoot) {
+    $configPath = Join-Path $repoRoot 'src\config\config.h'
+    if (-not (Test-Path $configPath)) { return 'unknown' }
+    $line = Select-String -Path $configPath -Pattern '\"([0-9]+\.[0-9]+)\"\s*,\s*// app_version' | Select-Object -First 1
+    if ($line -and $line.Matches.Count -gt 0) {
+        return $line.Matches[0].Groups[1].Value
+    }
+    return 'unknown'
+}
+
+function Resolve-BuildId([string]$repoRoot) {
+    $hash = ''
+    try {
+        $hash = (git -C $repoRoot rev-parse --short=12 HEAD).Trim()
+    } catch {
+        $hash = ''
+    }
+    if ([string]::IsNullOrWhiteSpace($hash)) { $hash = 'nogit' }
+    try {
+        $dirty = (git -C $repoRoot status --porcelain)
+        if (-not [string]::IsNullOrWhiteSpace($dirty)) { $hash = "$hash-dirty" }
+    } catch { }
+    return $hash
+}
 
 $setupRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 
@@ -119,6 +145,14 @@ try {
     Copy-Item -Path $mergedPath -Destination $destMain -Force
     $(Get-Item -Path $destMain).LastWriteTime = Get-Date
     Write-Host "Copied: $destMain"
+    $metaPath = [System.IO.Path]::ChangeExtension($destMain, '.meta.json')
+    $meta = @{
+        app = 'Mining-Stackchan-Core2'
+        ver = Resolve-AppVersion $firmwareRoot
+        build_id = Resolve-BuildId $firmwareRoot
+    } | ConvertTo-Json -Depth 2
+    Set-Content -Path $metaPath -Value $meta -Encoding UTF8
+    Write-Host "Copied: $metaPath"
     Write-Host "Done."
 }
 finally {

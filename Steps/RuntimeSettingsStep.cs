@@ -16,7 +16,16 @@ public sealed class RuntimeSettingsStep : StepBase
         var vm = context.ViewModel;
         if (vm.SelectedPort == null)
         {
-            return StepResult.Fail("COMポートが未選択です", canRetry: false);
+            return StepResult.Fail("COMポートが選択されていません", canRetry: false);
+        }
+
+        if (vm.WifiEnabled && vm.AiEnabled && string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey) && !vm.OpenAiKeyStored)
+        {
+            return StepResult.Fail("OpenAI APIキーが未入力です", canRetry: false);
+        }
+        if (vm.WifiEnabled && (vm.MiningEnabled || vm.AiEnabled) && string.IsNullOrWhiteSpace(vm.AzureKey) && !vm.AzureKeyStored)
+        {
+            return StepResult.Fail("Azure Speechキーが未入力です", canRetry: false);
         }
 
         vm.IsBusy = true;
@@ -57,10 +66,10 @@ public sealed class RuntimeSettingsStep : StepBase
 
             if (!applyResult.Success)
             {
-                vm.ErrorMessage = $"設定保存に失敗しました: {applyResult.Message}";
+                vm.ErrorMessage = $"設定反映に失敗しました: {applyResult.Message}";
                 vm.LastError = applyResult.Message;
-                vm.StatusMessage = "設定保存に失敗しました";
-                return StepResult.Fail($"設定保存に失敗しました: {applyResult.Message}");
+                vm.StatusMessage = "設定反映に失敗しました";
+                return StepResult.Fail($"設定反映に失敗しました: {applyResult.Message}");
             }
 
             vm.StatusMessage = "設定を保存して再起動しました。";
@@ -68,7 +77,7 @@ public sealed class RuntimeSettingsStep : StepBase
         }
         catch (OperationCanceledException)
         {
-            vm.StatusMessage = "中止しました";
+            vm.StatusMessage = "中断しました";
             return StepResult.Cancelled();
         }
         catch (TimeoutException ex)

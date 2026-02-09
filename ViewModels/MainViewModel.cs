@@ -56,12 +56,15 @@ public class MainViewModel : BindableBase
 
     private string _configWifiSsid = "";
     private string _configWifiPassword = "";
+    private bool _wifiPasswordStored;
     private bool _wifiEnabled = true;
     private bool _miningEnabled = true;
     private bool _aiEnabled = true;
     private string _ducoUser = "";
     private string _ducoMinerKey = "";
+    private bool _ducoKeyStored;
     private string _configOpenAiKey = "";
+    private bool _openAiKeyStored;
     private string _configOpenAiModel = "gpt-5-nano";
     private string _configOpenAiInstructions = "あなたはスタックチャンの会話AIです。日本語で短く答えてください。返答は120文字以内。箇条書き禁止。1〜2文。相手が『聞こえる？』等の確認なら、明るく短く返してください。";
     private string _displaySleepSecondsText = "60";
@@ -73,6 +76,7 @@ public class MainViewModel : BindableBase
     // Stub: PC保存とAzure連携はv1では未実装（UIのみ）
     private bool _saveToPc;
     private string _azureKey = "";
+    private bool _azureKeyStored;
     private string _azureRegion = "";
     private string _azureCustomSubdomain = "";
 
@@ -105,12 +109,12 @@ public class MainViewModel : BindableBase
         {
             new DetectPortsStep(),
             new FlashStep(),
+            new FeatureToggleStep(),
             new WifiStep(),
             new DucoStep(),
             new AzureStep(),
-            new OpenAiConfigStep(),
-            new CompleteStep(),
-            new RuntimeSettingsStep()
+            new RuntimeSettingsStep(),
+            new CompleteStep()
         });
         _totalSteps = _stepController.TotalSteps;
 
@@ -348,6 +352,12 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _configWifiPassword, value);
     }
 
+    public bool WifiPasswordStored
+    {
+        get => _wifiPasswordStored;
+        set => SetProperty(ref _wifiPasswordStored, value);
+    }
+
     public bool WifiEnabled
     {
         get => _wifiEnabled;
@@ -392,6 +402,12 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _ducoMinerKey, value);
     }
 
+    public bool DucoKeyStored
+    {
+        get => _ducoKeyStored;
+        set => SetProperty(ref _ducoKeyStored, value);
+    }
+
     public string ConfigOpenAiKey
     {
         get => _configOpenAiKey;
@@ -407,6 +423,12 @@ public class MainViewModel : BindableBase
                 ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
             }
         }
+    }
+
+    public bool OpenAiKeyStored
+    {
+        get => _openAiKeyStored;
+        set => SetProperty(ref _openAiKeyStored, value);
     }
 
     public string ConfigOpenAiModel
@@ -470,9 +492,16 @@ public class MainViewModel : BindableBase
         {
             if (SetProperty(ref _azureKey, value))
             {
+                AzureKeyStored = !string.IsNullOrWhiteSpace(value);
                 ResetAzureTestState();
             }
         }
+    }
+
+    public bool AzureKeyStored
+    {
+        get => _azureKeyStored;
+        set => SetProperty(ref _azureKeyStored, value);
     }
 
     public string AzureRegion
@@ -1101,6 +1130,10 @@ public class MainViewModel : BindableBase
             {
                 ConfigWifiSsid = ssid;
             }
+            if (TryGetBool(root, "wifi_pass_set", out var wifiPassSet))
+            {
+                WifiPasswordStored = wifiPassSet;
+            }
 
             if (TryGetBool(root, "wifi_enabled", out var wifiEnabled))
             {
@@ -1119,6 +1152,10 @@ public class MainViewModel : BindableBase
             {
                 DucoUser = ducoUser;
             }
+            if (TryGetBool(root, "duco_key_set", out var ducoKeySet))
+            {
+                DucoKeyStored = ducoKeySet;
+            }
 
             if (TryGetString(root, "az_region", out var azRegion) && !string.IsNullOrWhiteSpace(azRegion))
             {
@@ -1127,6 +1164,10 @@ public class MainViewModel : BindableBase
             if (TryGetString(root, "az_endpoint", out var azEndpoint) && !string.IsNullOrWhiteSpace(azEndpoint))
             {
                 AzureCustomSubdomain = azEndpoint;
+            }
+            if (TryGetBool(root, "az_key_set", out var azKeySet))
+            {
+                AzureKeyStored = azKeySet;
             }
 
             if (TryGetString(root, "openai_model", out var openAiModel) && !string.IsNullOrWhiteSpace(openAiModel))
@@ -1139,7 +1180,12 @@ public class MainViewModel : BindableBase
             }
             if (TryGetBool(root, "openai_key_set", out var openAiKeySet) && openAiKeySet && string.IsNullOrWhiteSpace(ConfigOpenAiKey))
             {
+                OpenAiKeyStored = true;
                 MaskedOpenAiKey = "(保存済み)";
+            }
+            else if (TryGetBool(root, "openai_key_set", out openAiKeySet))
+            {
+                OpenAiKeyStored = openAiKeySet;
             }
 
             if (TryGetInt(root, "display_sleep_s", out var displaySleepSeconds))
@@ -1371,7 +1417,14 @@ public class MainViewModel : BindableBase
         {
             return "未検出";
         }
+        var manifest = FirmwareManifest.FromFirmwarePath(path);
+        if (manifest == null)
+        {
+            return $"size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
+        }
 
-        return $"size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
+        var ver = string.IsNullOrWhiteSpace(manifest.Ver) ? "unknown" : manifest.Ver;
+        var build = string.IsNullOrWhiteSpace(manifest.BuildId) ? "unknown" : manifest.BuildId;
+        return $"ver={ver} / build={build} / size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
     }
 }

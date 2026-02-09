@@ -2,6 +2,7 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AiStackchanSetup.Models;
 using Serilog;
 
 namespace AiStackchanSetup.Steps;
@@ -47,6 +48,30 @@ public sealed class FlashStep : StepBase
         if (!int.TryParse(vm.FlashBaud, out var baud))
         {
             return StepResult.Fail("Baudが不正です", canRetry: false);
+        }
+
+        if (vm.FlashModeOverwrite)
+        {
+            var manifest = FirmwareManifest.FromFirmwarePath(vm.FirmwarePath);
+            if (manifest != null)
+            {
+                var infoResult = await context.SerialService.GetInfoAsync(vm.SelectedPort.PortName, token);
+                var device = infoResult.Info;
+                if (infoResult.Success && device != null)
+                {
+                    var sameVer = !string.IsNullOrWhiteSpace(manifest.Ver) &&
+                                  string.Equals(manifest.Ver, device.Ver, StringComparison.OrdinalIgnoreCase);
+                    var sameBuild = !string.IsNullOrWhiteSpace(manifest.BuildId) &&
+                                    string.Equals(manifest.BuildId, device.BuildId, StringComparison.OrdinalIgnoreCase);
+                    var same = sameBuild || (string.IsNullOrWhiteSpace(manifest.BuildId) && sameVer);
+                    if (same)
+                    {
+                        vm.FlashStatus = $"書き込み不要（ver={device.Ver}, build={device.BuildId}）";
+                        vm.StatusMessage = "同一ファームと判定したため書き込みをスキップしました";
+                        return StepResult.Skipped();
+                    }
+                }
+            }
         }
 
         var erase = vm.FlashModeErase;

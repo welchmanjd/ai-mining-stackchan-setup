@@ -90,6 +90,12 @@ if (Test-Path $fwSrcDir) {
   if ($publicFw) {
     Copy-Item $publicFw.FullName $rootFwDir -Force
     Copy-Item $publicFw.FullName $appFwDir  -Force
+    $publicMeta = [System.IO.Path]::ChangeExtension($publicFw.FullName, '.meta.json')
+    if (Test-Path $publicMeta) {
+      Copy-Item $publicMeta $rootFwDir -Force
+      Copy-Item $publicMeta $appFwDir  -Force
+      Write-Host "Firmware meta    : $([System.IO.Path]::GetFileName($publicMeta))"
+    }
     Write-Host "Firmware (public): $($publicFw.Name)"
   } else {
     # 念のため：_public が無い場合は全コピー（ただし通常は起きない想定）

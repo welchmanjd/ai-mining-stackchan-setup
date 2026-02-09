@@ -5,7 +5,7 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class WifiStep : StepBase
 {
-    public override int Index => 3;
+    public override int Index => 4;
     public override string Title => "Wi-Fi";
     public override string Description => "Wi-Fiを設定します。";
     public override string PrimaryActionText => "次へ";
@@ -14,10 +14,19 @@ public sealed class WifiStep : StepBase
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
         var vm = context.ViewModel;
-        if (string.IsNullOrWhiteSpace(vm.ConfigWifiSsid) || string.IsNullOrWhiteSpace(vm.ConfigWifiPassword))
+        if (!vm.WifiEnabled)
         {
-            vm.ErrorMessage = "Wi-Fi情報が未入力です";
-            return Task.FromResult(StepResult.Fail("Wi-Fi情報が未入力です", guidance: "SSID とパスワードを入力してください。", canRetry: false));
+            return Task.FromResult(StepResult.Skipped());
+        }
+
+        if (string.IsNullOrWhiteSpace(vm.ConfigWifiSsid))
+        {
+            return Task.FromResult(StepResult.Fail("Wi-Fi SSIDが未入力です", canRetry: false));
+        }
+
+        if (string.IsNullOrWhiteSpace(vm.ConfigWifiPassword) && !vm.WifiPasswordStored)
+        {
+            return Task.FromResult(StepResult.Fail("Wi-Fiパスワードが未入力です", canRetry: false));
         }
 
         return Task.FromResult(StepResult.Ok());
