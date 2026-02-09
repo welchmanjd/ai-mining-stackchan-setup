@@ -1,3 +1,12 @@
+# =========================================================
+# Build distribution firmware (public)
+#
+# Run (PowerShell):
+#   powershell -ExecutionPolicy Bypass -File .\tools\build_firmware_public.ps1
+# =========================================================
+
+
+
 param(
     [string]$Env = 'm5stack-core2-dist',
     [string]$FirmwareRepo = '',

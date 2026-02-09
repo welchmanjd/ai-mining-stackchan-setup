@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -62,12 +63,12 @@ public class MainViewModel : BindableBase
     private string _ducoMinerKey = "";
     private string _configOpenAiKey = "";
     private string _configOpenAiModel = "gpt-5-nano";
-    private string _configOpenAiInstructions = "";
+    private string _configOpenAiInstructions = "あなたはスタックチャンの会話AIです。日本語で短く答えてください。返答は120文字以内。箇条書き禁止。1〜2文。相手が『聞こえる？』等の確認なら、明るく短く返してください。";
     private string _displaySleepSecondsText = "60";
     private string _speakerVolumeText = "160";
-    private string _shareAcceptedText = "";
-    private string _attentionText = "";
-    private string _helloText = "";
+    private string _shareAcceptedText = "シェア獲得したよ！";
+    private string _attentionText = "Hi";
+    private string _helloText = "こんにちはマイニングスタックチャンです";
     private string _maskedOpenAiKey = "";
     // Stub: PC保存とAzure連携はv1では未実装（UIのみ）
     private bool _saveToPc;
@@ -108,7 +109,8 @@ public class MainViewModel : BindableBase
             new DucoStep(),
             new AzureStep(),
             new OpenAiConfigStep(),
-            new CompleteStep()
+            new CompleteStep(),
+            new RuntimeSettingsStep()
         });
         _totalSteps = _stepController.TotalSteps;
 
@@ -331,8 +333,8 @@ public class MainViewModel : BindableBase
     }
     public string LogDirectory => LogService.LogDirectory;
 
-    public bool IsCompleteStep => Step == 7;
-    public bool IsNotCompleteStep => Step != 7;
+    public bool IsCompleteStep => Step == 8;
+    public bool IsNotCompleteStep => Step != 8;
 
     public string ConfigWifiSsid
     {
@@ -1081,6 +1083,148 @@ public class MainViewModel : BindableBase
             AttentionText = AttentionText,
             HelloText = HelloText
         };
+    }
+
+    public void ApplyConfigSnapshot(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (TryGetString(root, "wifi_ssid", out var ssid) && !string.IsNullOrWhiteSpace(ssid))
+            {
+                ConfigWifiSsid = ssid;
+            }
+
+            if (TryGetBool(root, "wifi_enabled", out var wifiEnabled))
+            {
+                WifiEnabled = wifiEnabled;
+            }
+            if (TryGetBool(root, "mining_enabled", out var miningEnabled))
+            {
+                MiningEnabled = miningEnabled;
+            }
+            if (TryGetBool(root, "ai_enabled", out var aiEnabled))
+            {
+                AiEnabled = aiEnabled;
+            }
+
+            if (TryGetString(root, "duco_user", out var ducoUser) && !string.IsNullOrWhiteSpace(ducoUser))
+            {
+                DucoUser = ducoUser;
+            }
+
+            if (TryGetString(root, "az_region", out var azRegion) && !string.IsNullOrWhiteSpace(azRegion))
+            {
+                AzureRegion = azRegion;
+            }
+            if (TryGetString(root, "az_endpoint", out var azEndpoint) && !string.IsNullOrWhiteSpace(azEndpoint))
+            {
+                AzureCustomSubdomain = azEndpoint;
+            }
+
+            if (TryGetString(root, "openai_model", out var openAiModel) && !string.IsNullOrWhiteSpace(openAiModel))
+            {
+                ConfigOpenAiModel = openAiModel;
+            }
+            if (TryGetString(root, "openai_instructions", out var openAiInstructions) && !string.IsNullOrWhiteSpace(openAiInstructions))
+            {
+                ConfigOpenAiInstructions = openAiInstructions;
+            }
+            if (TryGetBool(root, "openai_key_set", out var openAiKeySet) && openAiKeySet && string.IsNullOrWhiteSpace(ConfigOpenAiKey))
+            {
+                MaskedOpenAiKey = "(保存済み)";
+            }
+
+            if (TryGetInt(root, "display_sleep_s", out var displaySleepSeconds))
+            {
+                DisplaySleepSecondsText = displaySleepSeconds.ToString();
+            }
+            if (TryGetInt(root, "spk_volume", out var speakerVolume))
+            {
+                SpeakerVolumeText = speakerVolume.ToString();
+            }
+
+            if (TryGetString(root, "share_accepted_text", out var shareAcceptedText) && !string.IsNullOrWhiteSpace(shareAcceptedText))
+            {
+                ShareAcceptedText = shareAcceptedText;
+            }
+            if (TryGetString(root, "attention_text", out var attentionText) && !string.IsNullOrWhiteSpace(attentionText))
+            {
+                AttentionText = attentionText;
+            }
+            if (TryGetString(root, "hello_text", out var helloText) && !string.IsNullOrWhiteSpace(helloText))
+            {
+                HelloText = helloText;
+            }
+        }
+        catch
+        {
+            // best effort: keep current/default input values
+        }
+    }
+
+    private static bool TryGetString(JsonElement root, string key, out string value)
+    {
+        value = string.Empty;
+        if (!root.TryGetProperty(key, out var elem))
+        {
+            return false;
+        }
+
+        if (elem.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        value = elem.GetString() ?? string.Empty;
+        return true;
+    }
+
+    private static bool TryGetBool(JsonElement root, string key, out bool value)
+    {
+        value = false;
+        if (!root.TryGetProperty(key, out var elem))
+        {
+            return false;
+        }
+
+        if (elem.ValueKind == JsonValueKind.True || elem.ValueKind == JsonValueKind.False)
+        {
+            value = elem.GetBoolean();
+            return true;
+        }
+
+        if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt32(out var n))
+        {
+            value = n != 0;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetInt(JsonElement root, string key, out int value)
+    {
+        value = 0;
+        if (!root.TryGetProperty(key, out var elem))
+        {
+            return false;
+        }
+
+        if (elem.ValueKind == JsonValueKind.Number && elem.TryGetInt32(out var n))
+        {
+            value = n;
+            return true;
+        }
+
+        return false;
     }
 
     private async Task CreateSupportPackAsync()

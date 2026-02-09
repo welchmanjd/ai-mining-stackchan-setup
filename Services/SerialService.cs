@@ -146,6 +146,34 @@ public class SerialService
         }
     }
 
+    public Task<(bool Success, string Message, string Json)> GetConfigJsonAsync(string portName)
+    {
+        return GetConfigJsonAsync(portName, CancellationToken.None);
+    }
+
+    public async Task<(bool Success, string Message, string Json)> GetConfigJsonAsync(string portName, CancellationToken token)
+    {
+        try
+        {
+            var response = await SendCommandAsync(portName, "GET CFG", TimeSpan.FromSeconds(5), token);
+            if (!response.StartsWith("@CFG", StringComparison.OrdinalIgnoreCase))
+            {
+                return (false, "応答が期待形式ではありません", string.Empty);
+            }
+
+            var json = response["@CFG".Length..].Trim();
+            return (true, "OK", json);
+        }
+        catch (SerialCommandException ex)
+        {
+            return (false, ex.Reason, string.Empty);
+        }
+        catch (TimeoutException ex)
+        {
+            return (false, ex.Message, string.Empty);
+        }
+    }
+
     public Task<ConfigResult> SendConfigAsync(string portName, DeviceConfig config)
     {
         return SendConfigAsync(portName, config, CancellationToken.None);
@@ -539,6 +567,7 @@ public class SerialService
 
             if (!(line.StartsWith("@OK", StringComparison.OrdinalIgnoreCase) ||
                   line.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase) ||
+                  line.StartsWith("@CFG", StringComparison.OrdinalIgnoreCase) ||
                   line.StartsWith("@ERR", StringComparison.OrdinalIgnoreCase)))
             {
                 trace.AppendLine($"read: {line}");

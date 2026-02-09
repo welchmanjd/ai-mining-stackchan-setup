@@ -1,8 +1,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using AiStackchanSetup.Models;
-using Serilog;
 
 namespace AiStackchanSetup.Steps;
 
@@ -10,8 +8,8 @@ public sealed class OpenAiConfigStep : StepBase
 {
     public override int Index => 6;
     public override string Title => "OpenAI";
-    public override string Description => "デバイスへ設定を送信します。";
-    public override string PrimaryActionText => "送信";
+    public override string Description => "OpenAI APIキーと機能ON/OFFを確認します。";
+    public override string PrimaryActionText => "次へ";
 
     public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
@@ -21,13 +19,13 @@ public sealed class OpenAiConfigStep : StepBase
             return StepResult.Fail("COMポートが未選択です", canRetry: false);
         }
 
-        if (string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey))
+        if (vm.AiEnabled && string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey))
         {
             return StepResult.Fail("OpenAI APIキーが未入力です", canRetry: false);
         }
 
         vm.IsBusy = true;
-        vm.StatusMessage = "接続確認中...";
+        vm.StatusMessage = "デバイス接続確認中...";
         vm.DeviceStatusSummary = "確認中";
         vm.DeviceInfoJson = "";
         vm.LastProtocolResponse = "";
@@ -46,7 +44,7 @@ public sealed class OpenAiConfigStep : StepBase
             {
                 vm.ErrorMessage = hello.Message;
                 vm.LastError = hello.Message;
-                vm.StatusMessage = "接続確認に失敗しました";
+                vm.StatusMessage = "デバイス確認に失敗しました";
                 return StepResult.Fail(hello.Message, guidance: "USB接続とCOMポート選択を確認してください。");
             }
 
@@ -62,7 +60,7 @@ public sealed class OpenAiConfigStep : StepBase
             {
                 vm.ErrorMessage = ping.Message;
                 vm.LastError = ping.Message;
-                vm.StatusMessage = "接続確認に失敗しました";
+                vm.StatusMessage = "デバイス確認に失敗しました";
                 return StepResult.Fail(ping.Message, guidance: "USB接続とCOMポート選択を確認してください。");
             }
 
@@ -78,63 +76,25 @@ public sealed class OpenAiConfigStep : StepBase
             {
                 vm.ErrorMessage = info.Message;
                 vm.LastError = info.Message;
-                vm.StatusMessage = "接続確認に失敗しました";
+                vm.StatusMessage = "デバイス確認に失敗しました";
                 return StepResult.Fail(info.Message, guidance: "USB接続とCOMポート選択を確認してください。");
             }
 
-            if (info.Info != null)
-            {
-                vm.DeviceStatusSummary = info.Info.ToSummary();
-            }
-            else
-            {
-                vm.DeviceStatusSummary = "未取得";
-            }
-
+            vm.DeviceStatusSummary = info.Info != null ? info.Info.ToSummary() : "未取得";
             vm.DeviceInfoJson = info.RawJson;
             vm.LastProtocolResponse = context.SerialService.LastProtocolResponse;
-
-            vm.StatusMessage = "設定送信中...";
-            var config = vm.BuildDeviceConfig();
-
-            var setResult = await context.RetryPolicy.ExecuteWithTimeoutAsync(
-                ct => context.SerialService.SendConfigAsync(vm.SelectedPort.PortName, config, ct),
-                context.Timeouts.SendConfig,
-                maxAttempts: 3,
-                baseDelay: TimeSpan.FromMilliseconds(400),
-                backoffFactor: 2,
-                token);
-
-            if (!setResult.Success)
-            {
-                vm.ErrorMessage = $"設定送信失敗: {setResult.Message}";
-                vm.LastError = setResult.Message;
-                vm.StatusMessage = "設定送信に失敗しました";
-                return StepResult.Fail($"設定送信失敗: {setResult.Message}");
-            }
-            if (!string.IsNullOrWhiteSpace(setResult.Message) && !setResult.Message.Equals("OK", StringComparison.OrdinalIgnoreCase))
-            {
-                vm.StatusMessage = setResult.Message;
-            }
-
-            vm.StatusMessage = "設定保存中...";
-            var applyResult = await context.RetryPolicy.ExecuteWithTimeoutAsync(
-                ct => context.SerialService.ApplyConfigAsync(vm.SelectedPort.PortName, ct),
-                context.Timeouts.ApplyConfig,
+            var cfg = await context.RetryPolicy.ExecuteWithTimeoutAsync(
+                ct => context.SerialService.GetConfigJsonAsync(vm.SelectedPort.PortName, ct),
+                context.Timeouts.Hello,
                 maxAttempts: 2,
-                baseDelay: TimeSpan.FromMilliseconds(600),
+                baseDelay: TimeSpan.FromMilliseconds(300),
                 backoffFactor: 2,
                 token);
-
-            if (!applyResult.Success)
+            if (cfg.Success && !string.IsNullOrWhiteSpace(cfg.Json))
             {
-                vm.ErrorMessage = $"設定保存失敗: {applyResult.Message}";
-                vm.LastError = applyResult.Message;
-                vm.StatusMessage = "設定保存に失敗しました";
-                return StepResult.Fail($"設定保存失敗: {applyResult.Message}");
+                vm.ApplyConfigSnapshot(cfg.Json);
             }
-
-            vm.StatusMessage = "設定送信完了";
+            vm.StatusMessage = "OpenAI設定の確認が完了しました。";
             return StepResult.Ok();
         }
         catch (OperationCanceledException)
@@ -151,11 +111,10 @@ public sealed class OpenAiConfigStep : StepBase
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Send config failed");
-            vm.ErrorMessage = "設定送信に失敗しました";
+            vm.ErrorMessage = "設定確認に失敗しました";
             vm.LastError = ex.Message;
-            vm.StatusMessage = "設定送信に失敗しました";
-            return StepResult.Fail("設定送信に失敗しました");
+            vm.StatusMessage = "設定確認に失敗しました";
+            return StepResult.Fail("設定確認に失敗しました");
         }
         finally
         {
