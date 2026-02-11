@@ -15,10 +15,11 @@ using Serilog;
 
 namespace AiStackchanSetup.Services;
 
-public class SerialService
+public class SerialService : IDisposable
 {
     private static readonly Encoding Utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     public int BaudRate { get; set; } = 115200;
+    private const string EmptyValueSentinel = "__MC_EMPTY__";
 
     public Task<IReadOnlyList<SerialPortInfo>> DetectPortsAsync()
     {
@@ -217,7 +218,6 @@ public class SerialService
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.WifiSsid))
         {
             var result = await SendSetWithCompatAsync("wifi_ssid", config.WifiSsid, allowUnknownKey: false);
             if (!result.Success) return result;
@@ -229,7 +229,6 @@ public class SerialService
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.DucoUser))
         {
             var result = await SendSetWithCompatAsync("duco_user", config.DucoUser, allowUnknownKey: false);
             if (!result.Success) return result;
@@ -241,7 +240,6 @@ public class SerialService
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.AzureRegion))
         {
             var result = await SendSetWithCompatAsync("az_speech_region", config.AzureRegion, allowUnknownKey: false);
             if (!result.Success) return result;
@@ -253,7 +251,6 @@ public class SerialService
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.AzureCustomSubdomain))
         {
             var result = await SendSetWithCompatAsync("az_custom_subdomain", config.AzureCustomSubdomain, allowUnknownKey: false);
             if (!result.Success) return result;
@@ -265,13 +262,11 @@ public class SerialService
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.OpenAiModel))
         {
             var result = await SendSetWithCompatAsync("openai_model", config.OpenAiModel, allowUnknownKey: true);
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.OpenAiInstructions))
         {
             var result = await SendSetWithCompatAsync("openai_instructions", config.OpenAiInstructions, allowUnknownKey: true);
             if (!result.Success) return result;
@@ -286,19 +281,16 @@ public class SerialService
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.ShareAcceptedText))
         {
             var result = await SendSetWithCompatAsync("share_accepted_text", config.ShareAcceptedText, allowUnknownKey: true);
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.AttentionText))
         {
             var result = await SendSetWithCompatAsync("attention_text", config.AttentionText, allowUnknownKey: true);
             if (!result.Success) return result;
         }
 
-        if (!string.IsNullOrWhiteSpace(config.HelloText))
         {
             var result = await SendSetWithCompatAsync("hello_text", config.HelloText, allowUnknownKey: true);
             if (!result.Success) return result;
@@ -306,7 +298,7 @@ public class SerialService
 
         return new ConfigResult
         {
-            Success = true,
+            Success = warnings.Count == 0,
             Message = warnings.Count > 0 ? $"一部キー未対応: {string.Join(", ", warnings)}" : "OK"
         };
     }
@@ -326,10 +318,21 @@ public class SerialService
                 return new ConfigResult { Success = false, Message = "保存結果が不明です" };
             }
 
-            var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(10), token);
-            if (!rebootResponse.StartsWith("@OK REBOOT", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                return new ConfigResult { Success = false, Message = "再起動結果が不明です" };
+                var rebootResponse = await SendCommandAsync(portName, "REBOOT", TimeSpan.FromSeconds(10), token);
+                if (!rebootResponse.StartsWith("@OK REBOOT", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new ConfigResult { Success = false, Message = "再起動結果が不明です" };
+                }
+            }
+            catch (TimeoutException)
+            {
+                return new ConfigResult { Success = true, Message = "OK (rebooting)" };
+            }
+            catch (IOException)
+            {
+                return new ConfigResult { Success = true, Message = "OK (rebooting)" };
             }
 
             return new ConfigResult { Success = true, Message = "OK" };
@@ -367,23 +370,248 @@ public class SerialService
         return Task.Run(() => DumpLogCore(portName, token), token);
     }
 
+    private SerialPort? _activePort;
+    private readonly object _portLock = new();
+
+    public void Close()
+    {
+        lock (_portLock)
+        {
+            if (_activePort != null)
+            {
+                try
+                {
+                    if (_activePort.IsOpen) _activePort.Close();
+                }
+                catch { /* ignore */ }
+                _activePort.Dispose();
+                _activePort = null;
+            }
+        }
+    }
+
+    private void CloseLockedPort(SerialPort? port)
+    {
+        if (port == null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (port.IsOpen)
+            {
+                port.Close();
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+
+        try
+        {
+            port.Dispose();
+        }
+        catch
+        {
+            // ignore
+        }
+    }
+
+    public void Dispose()
+    {
+        Close();
+    }
+
+    private async Task<string> SendCommandAsync(string portName, string command, TimeSpan timeout, CancellationToken token)
+    {
+        var trace = new StringBuilder();
+        trace.AppendLine("=== serial command ===");
+        trace.AppendLine($"timestamp: {DateTimeOffset.Now:O}");
+        trace.AppendLine($"port: {portName}");
+        trace.AppendLine($"baud: {BaudRate}");
+        trace.AppendLine($"timeout_ms: {(int)timeout.TotalMilliseconds}");
+        trace.AppendLine($"command: {RedactCommand(command)}");
+
+        SerialPort serial;
+        SerialPort? portToClose = null;
+        bool createdNew = false;
+        
+        lock (_portLock)
+        {
+            if (_activePort != null && _activePort.PortName != portName)
+            {
+                portToClose = _activePort;
+                _activePort = null;
+            }
+
+            if (_activePort == null)
+            {
+                _activePort = new SerialPort(portName, BaudRate)
+                {
+                    NewLine = "\n",
+                    Encoding = Utf8NoBom,
+                    ReadTimeout = (int)timeout.TotalMilliseconds,
+                    WriteTimeout = (int)timeout.TotalMilliseconds,
+                    Handshake = Handshake.None,
+                    DtrEnable = false,
+                    RtsEnable = false
+                };
+                createdNew = true;
+            }
+            serial = _activePort;
+        }
+        CloseLockedPort(portToClose);
+
+        try
+        {
+            if (!serial.IsOpen)
+            {
+                serial.Open();
+                // When freshly opened, wait a bit and clear garbage
+                try { serial.DiscardInBuffer(); } catch { /* ignore */ }
+                try { serial.DiscardOutBuffer(); } catch { /* ignore */ }
+                await Task.Delay(150, token);
+            }
+            
+            // Adjust timeouts for this specific command
+            serial.ReadTimeout = (int)timeout.TotalMilliseconds;
+            serial.WriteTimeout = (int)timeout.TotalMilliseconds;
+
+            // Do NOT utilize 'using' as we want to keep it open
+            // Do NOT re-create StreamWriter/Reader every time if possible, but for safety in this refactoring 
+            // we will create wrappers around the BaseStream. 
+            // Note: Closing StreamWriter/Reader closes the BaseStream, so we must be careful.
+            // Argument 'leaveOpen' is available in recent .NET versions or manually handle stream.
+            
+            // For simple refactoring without breaking 'using' mechanics on readers, 
+            // we will use the SerialPort direct methods or non-closing wrappers.
+            // Actually, SerialPort.WriteLine / ReadLine are available but synchronous.
+            // We need Async.
+            
+            // Allow stream wrappers to NOT close the underlying stream
+            using var streamWrapper = new NonClosingStreamWrapper(serial.BaseStream);
+            using var writer = new StreamWriter(streamWrapper, Utf8NoBom) { AutoFlush = true };
+            using var reader = new StreamReader(streamWrapper, Utf8NoBom);
+
+            Log.Information("Serial send {Command}", command.Split(' ')[0]);
+            trace.AppendLine("write: ok");
+            await writer.WriteLineAsync(command);
+
+            var line = await ReadResponseLineAsync(reader, timeout, trace, token);
+            if (line == null)
+            {
+                // Check for boot messages if we just connected or if device reset
+                var bootDetected = trace.ToString().Contains("boot:", StringComparison.OrdinalIgnoreCase)
+                                   || trace.ToString().Contains("entry 0x", StringComparison.OrdinalIgnoreCase)
+                                   || trace.ToString().Contains("[MAIN] setup() start", StringComparison.OrdinalIgnoreCase)
+                                   || trace.ToString().Contains("ets Jul", StringComparison.OrdinalIgnoreCase);
+                                   
+                if (bootDetected && !command.StartsWith("REBOOT", StringComparison.OrdinalIgnoreCase))
+                {
+                    trace.AppendLine("retry: boot_detected_resend");
+                    await Task.Delay(250, token);
+                    await writer.WriteLineAsync(command);
+                    line = await ReadResponseLineAsync(reader, TimeSpan.FromSeconds(3), trace, token);
+                }
+            }
+
+            if (line == null)
+            {
+                Log.Warning("Serial timeout for {Command}", command.Split(' ')[0]);
+                trace.AppendLine("read: timeout");
+                await AppendSerialTraceAsync(trace);
+                throw new TimeoutException($"デバイス応答がタイムアウトしました ({command})");
+            }
+
+            Log.Information("Serial recv: {Line}", line);
+            trace.AppendLine($"read: {line}");
+            await AppendSerialTraceAsync(trace);
+            var trimmed = line.Trim();
+            
+            // Update state
+            if (trimmed.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
+            {
+                LastInfoJson = trimmed["@INFO".Length..].Trim();
+            }
+            LastProtocolResponse = trimmed;
+
+            if (trimmed.StartsWith("@ERR", StringComparison.OrdinalIgnoreCase))
+            {
+                var reason = trimmed["@ERR".Length..].Trim();
+                throw new SerialCommandException(reason, trimmed);
+            }
+
+            return trimmed;
+        }
+        catch (OperationCanceledException)
+        {
+            trace.AppendLine("error: cancelled");
+            await AppendSerialTraceAsync(trace);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // On error, force close to ensure fresh state next time
+            Log.Error(ex, "Serial command failed");
+            trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
+            await AppendSerialTraceAsync(trace);
+            Close(); 
+            throw;
+        }
+    }
+
     private string DumpLogCore(string portName, CancellationToken token)
     {
         var sb = new StringBuilder();
         try
         {
-            using var serial = new SerialPort(portName, BaudRate)
+            SerialPort serial;
+            SerialPort? portToClose = null;
+            bool createdNew = false;
+
+            lock (_portLock)
             {
-                NewLine = "\n",
-                Encoding = Utf8NoBom,
-                ReadTimeout = 2000,
-                WriteTimeout = 2000
-            };
+                if (_activePort != null && _activePort.PortName != portName)
+                {
+                    portToClose = _activePort;
+                    _activePort = null;
+                }
 
-            serial.Open();
-            using var reader = new StreamReader(serial.BaseStream, Utf8NoBom);
+                if (_activePort == null)
+                {
+                    _activePort = new SerialPort(portName, BaudRate)
+                    {
+                        NewLine = "\n",
+                        Encoding = Utf8NoBom,
+                        ReadTimeout = 2000,
+                        WriteTimeout = 2000,
+                        Handshake = Handshake.None,
+                        DtrEnable = false,
+                        RtsEnable = false
+                    };
+                    createdNew = true;
+                }
+                serial = _activePort;
+            }
+            CloseLockedPort(portToClose);
 
-            serial.WriteLine("LOG_DUMP");
+            if (!serial.IsOpen)
+            {
+                serial.Open();
+                try { serial.DiscardInBuffer(); } catch { /* ignore */ }
+                try { serial.DiscardOutBuffer(); } catch { /* ignore */ }
+            }
+
+            serial.ReadTimeout = 2000;
+            serial.WriteTimeout = 2000;
+
+            using var streamWrapper = new NonClosingStreamWrapper(serial.BaseStream);
+            using var writer = new StreamWriter(streamWrapper, Utf8NoBom) { AutoFlush = true };
+            using var reader = new StreamReader(streamWrapper, Utf8NoBom);
+
+            writer.WriteLine("LOG_DUMP");
 
             var lastRead = DateTime.UtcNow;
             var hardLimit = DateTime.UtcNow.AddSeconds(10);
@@ -450,107 +678,29 @@ public class SerialService
             return string.Empty;
         }
     }
-
-    private async Task<string> SendCommandAsync(string portName, string command, TimeSpan timeout, CancellationToken token)
+    
+    // Helper class to prevent StreamWriter/Reader from closing the SerialPort
+    private class NonClosingStreamWrapper : Stream
     {
-        var trace = new StringBuilder();
-        trace.AppendLine("=== serial command ===");
-        trace.AppendLine($"timestamp: {DateTimeOffset.Now:O}");
-        trace.AppendLine($"port: {portName}");
-        trace.AppendLine($"baud: {BaudRate}");
-        trace.AppendLine($"timeout_ms: {(int)timeout.TotalMilliseconds}");
-        trace.AppendLine($"command: {RedactCommand(command)}");
-        SerialPort? serial = null;
-        StreamWriter? writer = null;
-        StreamReader? reader = null;
-        string? line = null;
-        try
-        {
-            serial = new SerialPort(portName, BaudRate)
-            {
-                NewLine = "\n",
-                Encoding = Utf8NoBom,
-                ReadTimeout = (int)timeout.TotalMilliseconds,
-                WriteTimeout = (int)timeout.TotalMilliseconds,
-                Handshake = Handshake.None,
-                DtrEnable = false,
-                RtsEnable = false
-            };
-
-            serial.Open();
-            try { serial.DiscardInBuffer(); } catch { /* ignore */ }
-            try { serial.DiscardOutBuffer(); } catch { /* ignore */ }
-            await Task.Delay(120, token);
-            writer = new StreamWriter(serial.BaseStream, Utf8NoBom) { AutoFlush = true };
-            reader = new StreamReader(serial.BaseStream, Utf8NoBom);
-
-            Log.Information("Serial send {Command}", command.Split(' ')[0]);
-            trace.AppendLine("write: ok");
-            await writer.WriteLineAsync(command);
-
-            line = await ReadResponseLineAsync(reader, timeout, trace, token);
-            if (line == null)
-            {
-                var bootDetected = trace.ToString().Contains("boot:", StringComparison.OrdinalIgnoreCase)
-                                   || trace.ToString().Contains("entry 0x", StringComparison.OrdinalIgnoreCase)
-                                   || trace.ToString().Contains("[MAIN] setup() start", StringComparison.OrdinalIgnoreCase)
-                                   || trace.ToString().Contains("ets Jul", StringComparison.OrdinalIgnoreCase);
-                if (bootDetected && !command.StartsWith("REBOOT", StringComparison.OrdinalIgnoreCase))
-                {
-                    trace.AppendLine("retry: boot_detected_resend");
-                    await Task.Delay(250, token);
-                    await writer.WriteLineAsync(command);
-                    line = await ReadResponseLineAsync(reader, TimeSpan.FromSeconds(3), trace, token);
-                }
-            }
-
-            if (line == null)
-            {
-                Log.Warning("Serial timeout for {Command}", command.Split(' ')[0]);
-                trace.AppendLine("read: timeout");
-                await AppendSerialTraceAsync(trace);
-                throw new TimeoutException($"デバイス応答がタイムアウトしました ({command})");
-            }
-
-            Log.Information("Serial recv: {Line}", line);
-            trace.AppendLine($"read: {line}");
-            await AppendSerialTraceAsync(trace);
-            var trimmed = line.Trim();
-            LastProtocolResponse = trimmed;
-            if (trimmed.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
-            {
-                LastInfoJson = trimmed["@INFO".Length..].Trim();
-            }
-
-            if (trimmed.StartsWith("@ERR", StringComparison.OrdinalIgnoreCase))
-            {
-                var reason = trimmed["@ERR".Length..].Trim();
-                throw new SerialCommandException(reason, trimmed);
-            }
-
-            return trimmed;
-        }
-        catch (OperationCanceledException)
-        {
-            trace.AppendLine("error: cancelled");
-            await AppendSerialTraceAsync(trace);
-            throw;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Serial command failed");
-            trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
-            await AppendSerialTraceAsync(trace);
-            throw;
-        }
-        finally
-        {
-            try { writer?.Flush(); } catch { /* ignore */ }
-            try { writer?.Dispose(); } catch { /* ignore */ }
-            try { reader?.Dispose(); } catch { /* ignore */ }
-            try { serial?.Close(); } catch { /* ignore */ }
-            try { serial?.Dispose(); } catch { /* ignore */ }
-        }
+        private readonly Stream _base;
+        public NonClosingStreamWrapper(Stream baseStream) => _base = baseStream;
+        public override void Close() { /* do nothing */ }
+        protected override void Dispose(bool disposing) { /* do nothing */ }
+        public override bool CanRead => _base.CanRead;
+        public override bool CanSeek => _base.CanSeek;
+        public override bool CanWrite => _base.CanWrite;
+        public override long Length => _base.Length;
+        public override long Position { get => _base.Position; set => _base.Position = value; }
+        public override void Flush() => _base.Flush();
+        public override int Read(byte[] buffer, int offset, int count) => _base.Read(buffer, offset, count);
+        public override long Seek(long offset, SeekOrigin origin) => _base.Seek(offset, origin);
+        public override void SetLength(long value) => _base.SetLength(value);
+        public override void Write(byte[] buffer, int offset, int count) => _base.Write(buffer, offset, count);
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => _base.ReadAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => _base.ReadAsync(buffer, cancellationToken);
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => _base.WriteAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) => _base.WriteAsync(buffer, cancellationToken);
+        public override Task FlushAsync(CancellationToken cancellationToken) => _base.FlushAsync(cancellationToken);
     }
 
     private async Task<string?> ReadLineAsync(StreamReader reader, TimeSpan timeout, CancellationToken token)
@@ -716,7 +866,8 @@ public class SerialService
     {
         try
         {
-            var response = await SendCommandAsync(portName, $"SET {key} {value}", TimeSpan.FromSeconds(8), token);
+            var encodedValue = string.IsNullOrEmpty(value) ? EmptyValueSentinel : value;
+            var response = await SendCommandAsync(portName, $"SET {key} {encodedValue}", TimeSpan.FromSeconds(8), token);
             if (response.StartsWith("@OK SET", StringComparison.OrdinalIgnoreCase))
             {
                 return new ConfigResult { Success = true, Message = "OK" };
@@ -765,3 +916,4 @@ public class SerialService
     }
 
 }
+

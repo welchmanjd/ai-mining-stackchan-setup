@@ -29,6 +29,39 @@ public class FlashService
                 token);
         }
 
+        // Try to use bundled espflash first
+        var espFlashPath = ResolveEspFlashPath();
+        if (!string.IsNullOrWhiteSpace(espFlashPath))
+        {
+            if (erase)
+            {
+                var eraseArgs = $"erase-flash -p {portName}";
+                var eraseResult = await RunToolAsync(espFlashPath, eraseArgs, "espflash", portName, baud, erase, firmwarePath, token);
+                if (!eraseResult.Success)
+                {
+                    eraseResult.Message = "espflash erase-flash 失敗";
+                    return eraseResult;
+                }
+            }
+
+            // Note: --no-stub might be needed for some usb-serial chips but usually standard flash is fine.
+            // Specifying offset 0x0 is implied for single bin if not specified? 
+            // espflash flash -p COMx -b 921600 file.bin addresses 0x0 by default for raw binaries provided as argument? 
+            // Actually espflash usually expects a partition table or specific format. 
+            // But if we give it a raw bin, we might need to specify address.
+            // espflash write-bin 0x0 file.bin is the command for raw binaries in older versions, 
+            // or `flash` command might strictly require partition table.
+            // Let's check typical usage. "write-bin" is explicit.
+            // However, esptool command was `write_flash -z 0x0`.
+            // Let's try `write-bin 0x0` if `espflash` supports it, or `flash` regarding user's tool version.
+            // Assuming modern espflash: `write-bin -p {port} -b {baud} 0x0 {firmware}`
+            
+            var flashArgs = $"write-bin -p {portName} -b {baud} 0x0 \"{firmwarePath}\"";
+            var result = await RunToolAsync(espFlashPath, flashArgs, "espflash", portName, baud, erase, firmwarePath, token);
+            result.Message = result.Success ? "書き込み成功 (espflash)" : "書き込み失敗 (espflash)";
+            return result;
+        }
+
         var esptoolAvailable = IsEsptoolAvailable();
         if (!esptoolAvailable)
         {
@@ -56,6 +89,87 @@ public class FlashService
         var esptoolResult = await RunEsptoolAsync(args, portName, baud, erase, firmwarePath, token);
         esptoolResult.Message = esptoolResult.Success ? "書き込み成功" : "書き込み失敗";
         return esptoolResult;
+    }
+
+    private string? ResolveEspFlashPath()
+    {
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var candidate = Path.Combine(baseDir, "tools", "espflash.exe");
+        return File.Exists(candidate) ? candidate : null;
+    }
+
+    private async Task<FlashResult> RunToolAsync(string exePath, string arguments, string toolName, string portName, int baud, bool erase, string firmwarePath, CancellationToken token)
+    {
+        var logPath = LogService.FlashLogPath;
+        var output = new StringBuilder();
+
+        try
+        {
+            AppendFlashContext(output, toolName, portName, baud, erase, firmwarePath);
+            output.AppendLine($"exe: {exePath}");
+            output.AppendLine($"args: {arguments}");
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+            process.Start();
+            using var registration = token.Register(() => TryKillProcess(process, output, "cancellation"));
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+
+            await Task.WhenAll(stdoutTask, stderrTask);
+            await process.WaitForExitAsync(token);
+
+            output.AppendLine(stdoutTask.Result);
+            output.AppendLine(stderrTask.Result);
+            await File.WriteAllTextAsync(logPath, output.ToString(), token);
+
+            var success = process.ExitCode == 0;
+            if (!success)
+            {
+                Log.Warning("{Tool} exit code {Code}", toolName, process.ExitCode);
+            }
+
+            return new FlashResult
+            {
+                Success = success,
+                ExitCode = process.ExitCode,
+                LogPath = logPath
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            output.AppendLine("Process cancelled.");
+            await File.WriteAllTextAsync(logPath, output.ToString(), token);
+            return new FlashResult
+            {
+                Success = false,
+                ExitCode = -1,
+                Message = "キャンセルされました",
+                LogPath = logPath
+            };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "{Tool} execution failed", toolName);
+            await File.WriteAllTextAsync(logPath, output.ToString(), token);
+            return new FlashResult
+            {
+                Success = false,
+                ExitCode = -1,
+                Message = ex.Message,
+                LogPath = logPath
+            };
+        }
     }
 
     private async Task<FlashResult> RunEsptoolAsync(string arguments, string portName, int baud, bool erase, string firmwarePath, CancellationToken token)

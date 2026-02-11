@@ -56,6 +56,9 @@ public sealed class FlashStep : StepBase
 
         try
         {
+            // Must ensure serial port is closed before calling esptool/espflash
+            context.SerialService.Close();
+
             var result = await context.RetryPolicy.ExecuteWithTimeoutAsync(
                 ct => context.FlashService.FlashAsync(vm.SelectedPort.PortName, baud, erase, vm.FirmwarePath, ct),
                 context.Timeouts.Flash,
