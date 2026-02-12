@@ -202,6 +202,10 @@
                                             <TextBox Text="{Binding DisplaySleepSecondsText}" />
                                         </StackPanel>
 
+                                        <CheckBox Content="書き込み後にシリアルログを60秒取得する"
+                                                  IsChecked="{Binding CaptureSerialLogAfterReboot}"
+                                                  Margin="0,0,0,8" />
+
                                         <StackPanel Margin="0,0,0,8">
                                             <TextBlock Text="OpenAIモデル" />
                                             <TextBox Text="{Binding ConfigOpenAiModel}" />

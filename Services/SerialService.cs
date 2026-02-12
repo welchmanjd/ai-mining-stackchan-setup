@@ -357,6 +357,82 @@ public class SerialService : IDisposable
         }
     }
 
+    public Task<string> CapturePostRebootLogAsync(string portName, TimeSpan duration, CancellationToken token)
+    {
+        return Task.Run(() =>
+        {
+            var sb = new StringBuilder();
+            var deadline = DateTime.UtcNow + duration;
+            SerialPort? serial = null;
+
+            try
+            {
+                // Ensure command channel is released before monitor capture.
+                Close();
+
+                while (DateTime.UtcNow < deadline)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    if (serial == null || !serial.IsOpen)
+                    {
+                        try
+                        {
+                            serial = new SerialPort(portName, BaudRate)
+                            {
+                                NewLine = "\n",
+                                Encoding = Utf8NoBom,
+                                ReadTimeout = 300,
+                                WriteTimeout = 1000,
+                                Handshake = Handshake.None,
+                                DtrEnable = false,
+                                RtsEnable = false
+                            };
+                            serial.Open();
+                        }
+                        catch
+                        {
+                            CloseLockedPort(serial);
+                            serial = null;
+                            Thread.Sleep(200);
+                            continue;
+                        }
+                    }
+
+                    try
+                    {
+                        var line = serial.ReadLine();
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        sb.Append('[')
+                          .Append(DateTime.Now.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture))
+                          .Append("] ")
+                          .AppendLine(line.TrimEnd('\r', '\n'));
+                    }
+                    catch (TimeoutException)
+                    {
+                        // keep waiting until deadline
+                    }
+                    catch
+                    {
+                        CloseLockedPort(serial);
+                        serial = null;
+                    }
+                }
+            }
+            finally
+            {
+                CloseLockedPort(serial);
+                Close();
+            }
+
+            return sb.ToString();
+        }, token);
+    }
+
     public Task<DeviceTestResult> RunTestAsync(string portName)
     {
         return RunTestAsync(portName, CancellationToken.None);

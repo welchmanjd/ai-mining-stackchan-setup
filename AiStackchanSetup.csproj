@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -17,9 +17,6 @@
     <PackageReference Include="System.Management" Version="8.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="Resources\firmware\stackchan_core2.bin" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Resources\firmware\stackchan_core2_public.bin" Condition="Exists('Resources\\firmware\\stackchan_core2_public.bin')" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="tools\espflash.exe" Condition="Exists('tools\espflash.exe')" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
+
 </Project>
+

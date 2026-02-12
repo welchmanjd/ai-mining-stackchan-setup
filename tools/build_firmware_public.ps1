@@ -138,8 +138,7 @@ try {
         throw "esptool.py merge_bin failed with exit code $LASTEXITCODE"
     }
 
-    $rootFirmwareDir = Join-Path $setupRoot 'firmware'
-    $outDir = if (Test-Path $rootFirmwareDir) { $rootFirmwareDir } else { Join-Path $setupRoot 'Resources\firmware' }
+    $outDir = Join-Path $setupRoot 'firmware'
     $destMain = Join-Path $outDir 'stackchan_core2_public.bin'
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
     Copy-Item -Path $mergedPath -Destination $destMain -Force
@@ -164,3 +163,4 @@ finally {
         }
     }
 }
+

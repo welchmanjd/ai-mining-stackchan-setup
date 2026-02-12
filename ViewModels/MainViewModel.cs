@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -75,6 +75,7 @@ public class MainViewModel : BindableBase
     private string _configOpenAiModel = "gpt-5-nano";
     private string _configOpenAiInstructions = "あなたはスタックチャンの会話AIです。日本語で短く答えてください。返答は120文字以内。箇条書き禁止。1〜2文。相手が『聞こえる？』等の確認なら、明るく短く返してください。";
     private string _displaySleepSecondsText = "60";
+    private bool _captureSerialLogAfterReboot = true;
     private string _speakerVolumeText = "160";
     private string _shareAcceptedText = "シェア獲得したよ！";
     private string _attentionText = "Hi";
@@ -573,6 +574,12 @@ public class MainViewModel : BindableBase
     {
         get => _displaySleepSecondsText;
         set => SetProperty(ref _displaySleepSecondsText, value);
+    }
+
+    public bool CaptureSerialLogAfterReboot
+    {
+        get => _captureSerialLogAfterReboot;
+        set => SetProperty(ref _captureSerialLogAfterReboot, value);
     }
 
     public string SpeakerVolumeText
@@ -1704,14 +1711,10 @@ public class MainViewModel : BindableBase
             rootDir = null;
         }
 
-        // まずは「ルートの firmware」を最優先（ユーザー差し替え口）
-        // 次に app\firmware（同梱の保険）
-        // 最後に exeDir 直下（旧互換）
+        // ルートの firmware のみを既定探索対象にする
         var candidates = new[]
         {
             rootDir != null ? Path.Combine(rootDir, "firmware", "stackchan_core2_public.bin") : null,
-            Path.Combine(exeDir, "firmware", "stackchan_core2_public.bin"),
-            Path.Combine(exeDir, "stackchan_core2_public.bin"),
         };
 
         foreach (var c in candidates)
@@ -1723,11 +1726,9 @@ public class MainViewModel : BindableBase
         }
 
         // 保険：名前が変わっても "_public" を含む .bin を拾う
-        // ルート firmware → app firmware の順で探す
         var searchDirs = new[]
         {
             rootDir != null ? Path.Combine(rootDir, "firmware") : null,
-            Path.Combine(exeDir, "firmware"),
         };
 
         foreach (var d in searchDirs)
@@ -1849,3 +1850,4 @@ public class MainViewModel : BindableBase
         return $"ver={ver} / build={build} / size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
     }
 }
+

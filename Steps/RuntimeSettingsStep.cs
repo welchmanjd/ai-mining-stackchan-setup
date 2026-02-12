@@ -1,7 +1,9 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
+using AiStackchanSetup.Services;
 
 namespace AiStackchanSetup.Steps;
 
@@ -149,7 +151,40 @@ public sealed class RuntimeSettingsStep : StepBase
                 return StepResult.Fail($"設定保存に失敗しました: {applyResult.Message}");
             }
 
-            vm.StatusMessage = "設定を保存して再起動しました。";
+            if (vm.CaptureSerialLogAfterReboot)
+            {
+                vm.StatusMessage = "設定保存後の起動ログを取得中...(60秒)";
+                try
+                {
+                    var rebootLog = await context.SerialService.CapturePostRebootLogAsync(
+                        vm.SelectedPort.PortName,
+                        TimeSpan.FromSeconds(60),
+                        token);
+                    if (!string.IsNullOrWhiteSpace(rebootLog))
+                    {
+                        var path = LogService.CreateDeviceLogPath();
+                        await File.WriteAllTextAsync(path, rebootLog, token);
+                        vm.DeviceLogPath = path;
+                        vm.StatusMessage = $"設定を保存して再起動しました。ログ保存: {path}";
+                    }
+                    else
+                    {
+                        vm.StatusMessage = "設定を保存して再起動しました（60秒のログ出力なし）";
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    vm.StatusMessage = $"設定を保存して再起動しました（ログ取得失敗: {ex.Message}）";
+                }
+            }
+            else
+            {
+                vm.StatusMessage = "設定を保存して再起動しました。";
+            }
             return StepResult.Ok();
         }
         catch (OperationCanceledException)
