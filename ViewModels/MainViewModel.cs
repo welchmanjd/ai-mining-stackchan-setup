@@ -20,6 +20,8 @@ namespace AiStackchanSetup.ViewModels;
 
 public class MainViewModel : BindableBase
 {
+    private const string ReuseValidationSkippedText = "再利用するため検証対象外";
+
     private readonly SerialService _serialService = new();
     private readonly FlashService _flashService = new();
     private readonly ApiTestService _apiTestService = new();
@@ -531,6 +533,7 @@ public class MainViewModel : BindableBase
 
                 RaisePropertyChanged(nameof(CanReuseOpenAiKey));
                 RaiseApiValidationStateChanged();
+                RefreshApiValidationSummaries();
             }
         }
     }
@@ -546,6 +549,7 @@ public class MainViewModel : BindableBase
                 _openAiTestedOk = false;
                 RaisePropertyChanged(nameof(CanEditOpenAiKey));
                 RaiseApiValidationStateChanged();
+                RefreshApiValidationSummaries();
             }
         }
     }
@@ -634,6 +638,7 @@ public class MainViewModel : BindableBase
 
                 RaisePropertyChanged(nameof(CanReuseAzureKey));
                 RaiseApiValidationStateChanged();
+                RefreshApiValidationSummaries();
             }
         }
     }
@@ -648,6 +653,7 @@ public class MainViewModel : BindableBase
                 ResetAzureTestState();
                 RaisePropertyChanged(nameof(CanEditAzureKey));
                 RaiseApiValidationStateChanged();
+                RefreshApiValidationSummaries();
             }
         }
     }
@@ -1227,6 +1233,35 @@ public class MainViewModel : BindableBase
         RaisePropertyChanged(nameof(CanRunApiValidation));
         RaisePropertyChanged(nameof(ApiValidationGuideText));
         ((AsyncRelayCommand)ValidateApiKeysCommand).RaiseCanExecuteChanged();
+    }
+
+    private void RefreshApiValidationSummaries()
+    {
+        if (OpenAiKeyStored && ReuseOpenAiKey)
+        {
+            ApiTestSummary = ReuseValidationSkippedText;
+            ApiTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+            ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+        }
+        else if (ApiTestSummary == ReuseValidationSkippedText)
+        {
+            ApiTestSummary = "未実行";
+            ApiTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+            ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+        }
+
+        if (AzureKeyStored && ReuseAzureKey)
+        {
+            AzureTestSummary = ReuseValidationSkippedText;
+            AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+            AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+        }
+        else if (AzureTestSummary == ReuseValidationSkippedText)
+        {
+            AzureTestSummary = "未実行";
+            AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+            AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+        }
     }
 
     private async Task TestOpenAiAsync()
