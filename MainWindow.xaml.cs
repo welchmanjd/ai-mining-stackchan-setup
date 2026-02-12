@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.ComponentModel;
+using System.Windows;
 using AiStackchanSetup.ViewModels;
 
 namespace AiStackchanSetup;
@@ -44,5 +45,10 @@ public partial class MainWindow : Window
         {
             _viewModel.AzureKey = box.Password;
         }
+    }
+
+    private void Window_OnClosing(object? sender, CancelEventArgs e)
+    {
+        _viewModel.PrepareForShutdown();
     }
 }

@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +14,24 @@ namespace AiStackchanSetup.Services;
 
 public class FlashService
 {
+    private readonly object _activeProcessesLock = new();
+    private readonly HashSet<Process> _activeProcesses = new();
+
     public string? PlatformIoHome { get; set; }
+
+    public void KillActiveProcesses()
+    {
+        Process[] snapshot;
+        lock (_activeProcessesLock)
+        {
+            snapshot = _activeProcesses.ToArray();
+        }
+
+        foreach (var process in snapshot)
+        {
+            TryKillProcess(process, null, "app-shutdown");
+        }
+    }
     public async Task<FlashResult> FlashAsync(string portName, int baud, bool erase, string firmwarePath, CancellationToken token)
     {
         Directory.CreateDirectory(LogService.LogDirectory);
@@ -29,18 +48,53 @@ public class FlashService
                 token);
         }
 
+        // Prefer esptool.py first for compatibility with older stable behavior.
+        if (IsEsptoolAvailable())
+        {
+            if (erase)
+            {
+                var eraseResult = await RunEsptoolAsync($"--chip esp32 --port {portName} --baud {baud} erase_flash", portName, baud, erase, firmwarePath, token);
+                if (!eraseResult.Success)
+                {
+                    eraseResult.Message = "erase_flash 失敗";
+                    return eraseResult;
+                }
+            }
+
+            var argsPrimary = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
+            var esptoolPrimary = await RunEsptoolAsync(argsPrimary, portName, baud, erase, firmwarePath, token);
+            esptoolPrimary.Message = esptoolPrimary.Success ? "書き込み成功 (esptool)" : "書き込み失敗 (esptool)";
+            return esptoolPrimary;
+        }
+
         // Try to use bundled espflash first
         var espFlashPath = ResolveEspFlashPath();
         if (!string.IsNullOrWhiteSpace(espFlashPath))
         {
+            var espflashUnavailableForThisRun = false;
+
             if (erase)
             {
-                var eraseArgs = $"erase-flash -p {portName}";
+                var eraseArgs = $"erase-flash --non-interactive -c esp32 -p {portName}";
                 var eraseResult = await RunToolAsync(espFlashPath, eraseArgs, "espflash", portName, baud, erase, firmwarePath, token);
                 if (!eraseResult.Success)
                 {
-                    eraseResult.Message = "espflash erase-flash 失敗";
-                    return eraseResult;
+                    if (IsEsptoolAvailable())
+                    {
+                        Log.Warning("espflash erase failed. Falling back to esptool.py erase_flash");
+                        var eraseFallback = await RunEsptoolAsync($"--chip esp32 --port {portName} --baud {baud} erase_flash", portName, baud, erase, firmwarePath, token);
+                        if (!eraseFallback.Success)
+                        {
+                            eraseFallback.Message = "erase_flash 失敗 (espflash + esptool)";
+                            return eraseFallback;
+                        }
+                        espflashUnavailableForThisRun = true;
+                    }
+                    else
+                    {
+                        eraseResult.Message = "espflash erase-flash 失敗";
+                        return eraseResult;
+                    }
                 }
             }
 
@@ -54,20 +108,43 @@ public class FlashService
             // Let's check typical usage. "write-bin" is explicit.
             // However, esptool command was `write_flash -z 0x0`.
             // Let's try `write-bin 0x0` if `espflash` supports it, or `flash` regarding user's tool version.
-            // Assuming modern espflash: `write-bin -p {port} -b {baud} 0x0 {firmware}`
+            // Assuming modern espflash: `write-bin -p {port} -B {baud} 0x0 {firmware}`
             
-            var flashArgs = $"write-bin -p {portName} -b {baud} 0x0 \"{firmwarePath}\"";
-            var result = await RunToolAsync(espFlashPath, flashArgs, "espflash", portName, baud, erase, firmwarePath, token);
-            result.Message = result.Success ? "書き込み成功 (espflash)" : "書き込み失敗 (espflash)";
-            return result;
-        }
+            if (!espflashUnavailableForThisRun)
+            {
+                var flashArgs = $"write-bin --non-interactive -c esp32 -p {portName} -B {baud} 0x0 \"{firmwarePath}\"";
+                var result = await RunToolAsync(espFlashPath, flashArgs, "espflash", portName, baud, erase, firmwarePath, token);
+                if (result.Success)
+                {
+                    result.Message = "書き込み成功 (espflash)";
+                    return result;
+                }
 
-        var esptoolAvailable = IsEsptoolAvailable();
-        if (!esptoolAvailable)
-        {
+                if (IsEsptoolAvailable())
+                {
+                    Log.Warning("espflash failed. Falling back to esptool.py");
+                    var fallbackArgs = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
+                    var fallback = await RunEsptoolAsync(fallbackArgs, portName, baud, erase, firmwarePath, token);
+                    fallback.Message = fallback.Success ? "書き込み成功 (esptool fallback)" : "書き込み失敗 (espflash + esptool)";
+                    return fallback;
+                }
+
+                result.Message = "書き込み失敗 (espflash)";
+                return result;
+            }
+
+            if (IsEsptoolAvailable())
+            {
+                Log.Warning("Skipping espflash write due to prior espflash failure. Using esptool.py directly.");
+                var fallbackArgs = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
+                var fallback = await RunEsptoolAsync(fallbackArgs, portName, baud, erase, firmwarePath, token);
+                fallback.Message = fallback.Success ? "書き込み成功 (esptool direct)" : "書き込み失敗 (esptool direct)";
+                return fallback;
+            }
+
             return await FailWithLogAsync(
-                "PlatformIO の Python / esptool.py が見つかりません。開発環境の PlatformIO を確認してください。",
-                "esptool.py",
+                "espflash が接続できず、esptool.py も利用できません。",
+                "none",
                 portName,
                 baud,
                 erase,
@@ -75,20 +152,14 @@ public class FlashService
                 token);
         }
 
-        if (erase)
-        {
-            var eraseResult = await RunEsptoolAsync($"--chip esp32 --port {portName} --baud {baud} erase_flash", portName, baud, erase, firmwarePath, token);
-            if (!eraseResult.Success)
-            {
-                eraseResult.Message = "erase_flash 失敗";
-                return eraseResult;
-            }
-        }
-
-        var args = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
-        var esptoolResult = await RunEsptoolAsync(args, portName, baud, erase, firmwarePath, token);
-        esptoolResult.Message = esptoolResult.Success ? "書き込み成功" : "書き込み失敗";
-        return esptoolResult;
+        return await FailWithLogAsync(
+            "書き込みツールが見つかりません。esptool.py または espflash.exe を確認してください。",
+            "none",
+            portName,
+            baud,
+            erase,
+            firmwarePath,
+            token);
     }
 
     private string? ResolveEspFlashPath()
@@ -102,6 +173,7 @@ public class FlashService
     {
         var logPath = LogService.FlashLogPath;
         var output = new StringBuilder();
+        Process? process = null;
 
         try
         {
@@ -119,8 +191,9 @@ public class FlashService
                 CreateNoWindow = true
             };
 
-            using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+            process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             process.Start();
+            RegisterActiveProcess(process);
             using var registration = token.Register(() => TryKillProcess(process, output, "cancellation"));
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
@@ -131,9 +204,15 @@ public class FlashService
 
             output.AppendLine(stdoutTask.Result);
             output.AppendLine(stderrTask.Result);
-            await File.WriteAllTextAsync(logPath, output.ToString(), token);
 
             var success = process.ExitCode == 0;
+            if (!success && string.Equals(toolName, "espflash", StringComparison.OrdinalIgnoreCase))
+            {
+                await AppendEspflashDiagnosticsAsync(output, exePath, portName, baud, token);
+            }
+
+            await File.WriteAllTextAsync(logPath, output.ToString(), token);
+
             if (!success)
             {
                 Log.Warning("{Tool} exit code {Code}", toolName, process.ExitCode);
@@ -170,12 +249,21 @@ public class FlashService
                 LogPath = logPath
             };
         }
+        finally
+        {
+            if (process != null)
+            {
+                UnregisterActiveProcess(process);
+                process.Dispose();
+            }
+        }
     }
 
     private async Task<FlashResult> RunEsptoolAsync(string arguments, string portName, int baud, bool erase, string firmwarePath, CancellationToken token)
     {
         var logPath = LogService.FlashLogPath;
         var output = new StringBuilder();
+        Process? process = null;
 
         try
         {
@@ -210,8 +298,9 @@ public class FlashService
                 CreateNoWindow = true
             };
 
-            using var process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
+            process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             process.Start();
+            RegisterActiveProcess(process);
             using var registration = token.Register(() => TryKillProcess(process, output, "cancellation"));
 
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
@@ -261,6 +350,30 @@ public class FlashService
                 LogPath = logPath
             };
         }
+        finally
+        {
+            if (process != null)
+            {
+                UnregisterActiveProcess(process);
+                process.Dispose();
+            }
+        }
+    }
+
+    private void RegisterActiveProcess(Process process)
+    {
+        lock (_activeProcessesLock)
+        {
+            _activeProcesses.Add(process);
+        }
+    }
+
+    private void UnregisterActiveProcess(Process process)
+    {
+        lock (_activeProcessesLock)
+        {
+            _activeProcesses.Remove(process);
+        }
     }
 
     private static void TryKillProcess(Process process, StringBuilder? output, string reason)
@@ -295,6 +408,83 @@ public class FlashService
             output.AppendLine($"firmware_size: {info.Length}");
             output.AppendLine($"firmware_mtime: {info.LastWriteTime:O}");
             output.AppendLine($"firmware_sha256: {ComputeSha256(firmwarePath)}");
+        }
+    }
+
+    private static async Task AppendEspflashDiagnosticsAsync(
+        StringBuilder output,
+        string exePath,
+        string portName,
+        int baud,
+        CancellationToken token)
+    {
+        output.AppendLine();
+        output.AppendLine("=== espflash diagnostics ===");
+        await AppendCommandProbeAsync(output, exePath, "--version", token);
+        await AppendCommandProbeAsync(output, exePath, "list-ports", token);
+        await AppendCommandProbeAsync(output, exePath, $"board-info --non-interactive -c esp32 -p {portName} -B {baud}", token);
+        if (baud != 115200)
+        {
+            await AppendCommandProbeAsync(output, exePath, $"board-info --non-interactive -c esp32 -p {portName} -B 115200", token);
+        }
+    }
+
+    private static async Task AppendCommandProbeAsync(
+        StringBuilder output,
+        string exePath,
+        string arguments,
+        CancellationToken token)
+    {
+        output.AppendLine($"> probe: {Path.GetFileName(exePath)} {arguments}");
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(8));
+        Process? process = null;
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            process = new Process { StartInfo = startInfo };
+            process.Start();
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            await Task.WhenAll(stdoutTask, stderrTask);
+            await process.WaitForExitAsync(timeoutCts.Token);
+
+            output.AppendLine($"exit: {process.ExitCode}");
+            if (!string.IsNullOrWhiteSpace(stdoutTask.Result))
+            {
+                output.AppendLine(stdoutTask.Result);
+            }
+            if (!string.IsNullOrWhiteSpace(stderrTask.Result))
+            {
+                output.AppendLine(stderrTask.Result);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            if (process != null)
+            {
+                TryKillProcess(process, output, token.IsCancellationRequested ? "probe-cancelled" : "probe-timeout");
+            }
+            output.AppendLine(token.IsCancellationRequested ? "probe cancelled" : "probe timeout");
+        }
+        catch (Exception ex)
+        {
+            output.AppendLine($"probe failed: {ex.Message}");
+        }
+        finally
+        {
+            process?.Dispose();
         }
     }
 

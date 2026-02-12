@@ -125,31 +125,41 @@ public class SerialService : IDisposable
 
     public async Task<DeviceInfoResult> GetInfoAsync(string portName, TimeSpan timeout, CancellationToken token)
     {
-        try
+        for (var attempt = 0; attempt < 2; attempt++)
         {
-            var response = await SendCommandAsync(portName, "GET INFO", timeout, token);
-            if (!response.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
+            try
             {
-                return new DeviceInfoResult { Success = false, Message = "応答が期待形式ではありません" };
-            }
+                var response = await SendCommandAsync(portName, "GET INFO", timeout, token);
+                if (!response.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new DeviceInfoResult { Success = false, Message = "応答が期待形式ではありません" };
+                }
 
-            var json = response["@INFO".Length..].Trim();
-            var info = DeviceInfo.TryParse(json);
-            if (info == null)
+                var json = response["@INFO".Length..].Trim();
+                var info = DeviceInfo.TryParse(json);
+                if (info == null)
+                {
+                    return new DeviceInfoResult { Success = false, Message = "INFO JSONが解析できません" };
+                }
+
+                return new DeviceInfoResult { Success = true, Message = "OK", RawJson = json, Info = info };
+            }
+            catch (SerialCommandException ex) when (attempt == 0 && IsTransientInfoSyncNoise(ex.Reason))
             {
-                return new DeviceInfoResult { Success = false, Message = "INFO JSONが解析できません" };
+                await Task.Delay(180, token);
+                continue;
             }
+            catch (SerialCommandException ex)
+            {
+                return new DeviceInfoResult { Success = false, Message = ex.Reason };
+            }
+            catch (TimeoutException ex)
+            {
+                return new DeviceInfoResult { Success = false, Message = ex.Message };
+            }
+        }
 
-            return new DeviceInfoResult { Success = true, Message = "OK", RawJson = json, Info = info };
-        }
-        catch (SerialCommandException ex)
-        {
-            return new DeviceInfoResult { Success = false, Message = ex.Reason };
-        }
-        catch (TimeoutException ex)
-        {
-            return new DeviceInfoResult { Success = false, Message = ex.Message };
-        }
+        return new DeviceInfoResult { Success = false, Message = "GET INFO failed after retry" };
     }
 
     public Task<(bool Success, string Message, string Json)> GetConfigJsonAsync(string portName)
@@ -915,5 +925,20 @@ public class SerialService : IDisposable
                key.Equals("openai_key", StringComparison.OrdinalIgnoreCase);
     }
 
-}
+    private static bool IsTransientInfoSyncNoise(string reason)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return false;
+        }
 
+        if (!reason.StartsWith("unknown_cmd:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var payload = reason["unknown_cmd:".Length..].Trim();
+        return payload.Length > 0 && payload.All(ch => ch == 'U');
+    }
+
+}

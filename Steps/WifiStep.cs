@@ -24,7 +24,9 @@ public sealed class WifiStep : StepBase
             return Task.FromResult(StepResult.Fail("Wi-Fi SSIDが未入力です", canRetry: false));
         }
 
-        if (string.IsNullOrWhiteSpace(vm.ConfigWifiPassword) && !vm.WifiPasswordStored)
+        var hasPassword = !string.IsNullOrWhiteSpace(vm.ConfigWifiPassword);
+        var canReusePassword = vm.WifiPasswordStored && vm.ReuseWifiPassword;
+        if (!hasPassword && !canReusePassword)
         {
             return Task.FromResult(StepResult.Fail("Wi-Fiパスワードが未入力です", canRetry: false));
         }

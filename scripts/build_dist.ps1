@@ -28,6 +28,7 @@ function Copy-IfExists([string]$src, [string]$dst) {
   return $false
 }
 
+
 Write-Host "== Build Dist =="
 Write-Host "Project        : $Project"
 Write-Host "Configuration  : $Configuration"
@@ -38,6 +39,7 @@ Write-Host ""
 # --- 0) dist をクリーン作成 ---
 if (Test-Path $DistRoot) { Remove-Item $DistRoot -Recurse -Force }
 Ensure-Dir $DistRoot
+Write-Host "Effective DistRoot: $DistRoot"
 
 $appDir = Join-Path $DistRoot "app"
 Ensure-Dir $appDir

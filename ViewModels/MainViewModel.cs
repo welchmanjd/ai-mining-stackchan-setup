@@ -59,14 +59,17 @@ public class MainViewModel : BindableBase
     private string _configWifiSsid = "";
     private string _configWifiPassword = "";
     private bool _wifiPasswordStored;
+    private bool _reuseWifiPassword;
     private bool _wifiEnabled = true;
     private bool _miningEnabled = true;
     private bool _aiEnabled = true;
     private string _ducoUser = "";
     private string _ducoMinerKey = "";
     private bool _ducoKeyStored;
+    private bool _reuseDucoMinerKey;
     private string _configOpenAiKey = "";
     private bool _openAiKeyStored;
+    private bool _reuseOpenAiKey;
     private string _configOpenAiModel = "gpt-5-nano";
     private string _configOpenAiInstructions = "あなたはスタックチャンの会話AIです。日本語で短く答えてください。返答は120文字以内。箇条書き禁止。1〜2文。相手が『聞こえる？』等の確認なら、明るく短く返してください。";
     private string _displaySleepSecondsText = "60";
@@ -79,6 +82,7 @@ public class MainViewModel : BindableBase
     private bool _saveToPc;
     private string _azureKey = "";
     private bool _azureKeyStored;
+    private bool _reuseAzureKey;
     private string _azureRegion = "";
     private string _azureCustomSubdomain = "";
 
@@ -123,12 +127,13 @@ public class MainViewModel : BindableBase
 
         PrimaryCommand = new AsyncRelayCommand(PrimaryAsync, () => !IsBusy);
         AbortToCompleteCommand = new AsyncRelayCommand(AbortToCompleteAsync);
-        CloseCommand = new RelayCommand(() => Application.Current.Shutdown());
+        CloseCommand = new RelayCommand(RequestShutdown);
         CancelCommand = new RelayCommand(CancelCurrent);
         BackCommand = new RelayCommand(GoBack, () => Step > 1 && !IsBusy);
         SkipCommand = new RelayCommand(SkipStep, () => _stepController.CanSkip && !IsBusy);
         AzureTestCommand = new AsyncRelayCommand(TestAzureAsync, () => !IsBusy);
         OpenAiTestCommand = new AsyncRelayCommand(TestOpenAiAsync, () => !IsBusy);
+        ValidateApiKeysCommand = new AsyncRelayCommand(ValidateApiKeysAsync, () => !IsBusy && CanRunApiValidation);
         DumpDeviceLogCommand = new AsyncRelayCommand(DumpDeviceLogAsync, () => !IsBusy);
         BrowseFirmwareCommand = new RelayCommand(BrowseFirmware);
         OpenLogFolderCommand = new RelayCommand(OpenLogFolder);
@@ -183,6 +188,7 @@ public class MainViewModel : BindableBase
                 ((AsyncRelayCommand)PrimaryCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)AzureTestCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)OpenAiTestCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)ValidateApiKeysCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)DumpDeviceLogCommand).RaiseCanExecuteChanged();
                 BackCommand.RaiseCanExecuteChanged();
                 SkipCommand.RaiseCanExecuteChanged();
@@ -372,8 +378,34 @@ public class MainViewModel : BindableBase
     public bool WifiPasswordStored
     {
         get => _wifiPasswordStored;
-        set => SetProperty(ref _wifiPasswordStored, value);
+        set
+        {
+            if (SetProperty(ref _wifiPasswordStored, value))
+            {
+                if (!_wifiPasswordStored)
+                {
+                    ReuseWifiPassword = false;
+                }
+
+                RaisePropertyChanged(nameof(CanReuseWifiPassword));
+            }
+        }
     }
+
+    public bool ReuseWifiPassword
+    {
+        get => _reuseWifiPassword;
+        set
+        {
+            if (SetProperty(ref _reuseWifiPassword, value))
+            {
+                RaisePropertyChanged(nameof(CanEditWifiPassword));
+            }
+        }
+    }
+
+    public bool CanReuseWifiPassword => WifiPasswordStored;
+    public bool CanEditWifiPassword => !ReuseWifiPassword;
 
     public bool WifiEnabled
     {
@@ -389,6 +421,7 @@ public class MainViewModel : BindableBase
                 }
 
                 RaisePropertyChanged(nameof(FeatureToggleChildrenEnabled));
+                RaiseApiValidationStateChanged();
             }
         }
     }
@@ -396,16 +429,32 @@ public class MainViewModel : BindableBase
     public bool MiningEnabled
     {
         get => _miningEnabled;
-        set => SetProperty(ref _miningEnabled, value);
+        set
+        {
+            if (SetProperty(ref _miningEnabled, value))
+            {
+                RaisePropertyChanged(nameof(IsMiningDisabled));
+                RaisePropertyChanged(nameof(MiningModeSummary));
+                RaiseApiValidationStateChanged();
+            }
+        }
     }
 
     public bool AiEnabled
     {
         get => _aiEnabled;
-        set => SetProperty(ref _aiEnabled, value);
+        set
+        {
+            if (SetProperty(ref _aiEnabled, value))
+            {
+                RaiseApiValidationStateChanged();
+            }
+        }
     }
 
     public bool FeatureToggleChildrenEnabled => WifiEnabled;
+    public bool IsMiningDisabled => !MiningEnabled;
+    public string MiningModeSummary => MiningEnabled ? "マイニング機能はONにします" : "マイニング機能はOFFにします";
 
     public string DucoUser
     {
@@ -422,8 +471,34 @@ public class MainViewModel : BindableBase
     public bool DucoKeyStored
     {
         get => _ducoKeyStored;
-        set => SetProperty(ref _ducoKeyStored, value);
+        set
+        {
+            if (SetProperty(ref _ducoKeyStored, value))
+            {
+                if (!_ducoKeyStored)
+                {
+                    ReuseDucoMinerKey = false;
+                }
+
+                RaisePropertyChanged(nameof(CanReuseDucoMinerKey));
+            }
+        }
     }
+
+    public bool ReuseDucoMinerKey
+    {
+        get => _reuseDucoMinerKey;
+        set
+        {
+            if (SetProperty(ref _reuseDucoMinerKey, value))
+            {
+                RaisePropertyChanged(nameof(CanEditDucoMinerKey));
+            }
+        }
+    }
+
+    public bool CanReuseDucoMinerKey => DucoKeyStored;
+    public bool CanEditDucoMinerKey => !ReuseDucoMinerKey;
 
     public string ConfigOpenAiKey
     {
@@ -445,8 +520,38 @@ public class MainViewModel : BindableBase
     public bool OpenAiKeyStored
     {
         get => _openAiKeyStored;
-        set => SetProperty(ref _openAiKeyStored, value);
+        set
+        {
+            if (SetProperty(ref _openAiKeyStored, value))
+            {
+                if (!_openAiKeyStored)
+                {
+                    ReuseOpenAiKey = false;
+                }
+
+                RaisePropertyChanged(nameof(CanReuseOpenAiKey));
+                RaiseApiValidationStateChanged();
+            }
+        }
     }
+
+    public bool ReuseOpenAiKey
+    {
+        get => _reuseOpenAiKey;
+        set
+        {
+            if (SetProperty(ref _reuseOpenAiKey, value))
+            {
+                _openAiTestedKey = "";
+                _openAiTestedOk = false;
+                RaisePropertyChanged(nameof(CanEditOpenAiKey));
+                RaiseApiValidationStateChanged();
+            }
+        }
+    }
+
+    public bool CanReuseOpenAiKey => OpenAiKeyStored;
+    public bool CanEditOpenAiKey => !ReuseOpenAiKey;
 
     public string ConfigOpenAiModel
     {
@@ -518,8 +623,44 @@ public class MainViewModel : BindableBase
     public bool AzureKeyStored
     {
         get => _azureKeyStored;
-        set => SetProperty(ref _azureKeyStored, value);
+        set
+        {
+            if (SetProperty(ref _azureKeyStored, value))
+            {
+                if (!_azureKeyStored)
+                {
+                    ReuseAzureKey = false;
+                }
+
+                RaisePropertyChanged(nameof(CanReuseAzureKey));
+                RaiseApiValidationStateChanged();
+            }
+        }
     }
+
+    public bool ReuseAzureKey
+    {
+        get => _reuseAzureKey;
+        set
+        {
+            if (SetProperty(ref _reuseAzureKey, value))
+            {
+                ResetAzureTestState();
+                RaisePropertyChanged(nameof(CanEditAzureKey));
+                RaiseApiValidationStateChanged();
+            }
+        }
+    }
+
+    public bool CanReuseAzureKey => AzureKeyStored;
+    public bool CanEditAzureKey => !ReuseAzureKey;
+    public bool CanRunApiValidation => !IsUsingStoredApiKeys;
+    public string ApiValidationGuideText => IsUsingStoredApiKeys
+        ? "M5StackCore2内の情報を利用するためスキップします。"
+        : "必要に応じてここでAPIキーの有効確認を実行できます。";
+
+    private bool IsUsingStoredApiKeys =>
+        (OpenAiKeyStored && ReuseOpenAiKey) || (AzureKeyStored && ReuseAzureKey);
 
     public string AzureRegion
     {
@@ -619,6 +760,7 @@ public class MainViewModel : BindableBase
     public AsyncRelayCommand AbortToCompleteCommand { get; }
     public AsyncRelayCommand AzureTestCommand { get; }
     public AsyncRelayCommand OpenAiTestCommand { get; }
+    public AsyncRelayCommand ValidateApiKeysCommand { get; }
     public AsyncRelayCommand DumpDeviceLogCommand { get; }
     public RelayCommand BrowseFirmwareCommand { get; }
     public RelayCommand OpenLogFolderCommand { get; }
@@ -691,7 +833,7 @@ public class MainViewModel : BindableBase
     {
         while (true)
         {
-            if (Step == 5 && (!WifiEnabled || !MiningEnabled))
+            if (Step == 5 && !WifiEnabled)
             {
                 Step = 6;
                 continue;
@@ -715,6 +857,26 @@ public class MainViewModel : BindableBase
     private void CancelCurrent()
     {
         _stepCts?.Cancel();
+    }
+
+    public void PrepareForShutdown()
+    {
+        try
+        {
+            CancelCurrent();
+            _serialService.Close();
+            _flashService.KillActiveProcesses();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "PrepareForShutdown failed");
+        }
+    }
+
+    private void RequestShutdown()
+    {
+        PrepareForShutdown();
+        Application.Current.Shutdown();
     }
 
     private async Task AbortToCompleteAsync()
@@ -959,6 +1121,114 @@ public class MainViewModel : BindableBase
         }
     }
 
+    private async Task ValidateApiKeysAsync()
+    {
+        if (!CanRunApiValidation)
+        {
+            StatusMessage = "M5StackCore2内の情報を利用するため、APIキー確認をスキップしました。";
+            return;
+        }
+
+        ErrorMessage = "";
+        IsBusy = true;
+        StatusMessage = "APIキーを確認中...";
+
+        try
+        {
+            if (WifiEnabled && AiEnabled)
+            {
+                var apiResult = await _retryPolicy.ExecuteWithTimeoutAsync(
+                    ct => _apiTestService.TestAsync(ConfigOpenAiKey, ct),
+                    TimeSpan.FromSeconds(25),
+                    maxAttempts: 3,
+                    baseDelay: TimeSpan.FromMilliseconds(400),
+                    backoffFactor: 2,
+                    CancellationToken.None);
+
+                ApiTestSummary = apiResult.Success ? "利用可能です" : $"利用できません: {apiResult.Message}";
+                ApiTestSummaryBrush = apiResult.Success
+                    ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                    : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                ApiTestSummaryBackground = apiResult.Success
+                    ? new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3))
+                    : new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
+                _lastApiResult = apiResult.Success ? "success" : apiResult.Message;
+                if (apiResult.Success)
+                {
+                    _openAiTestedKey = ConfigOpenAiKey;
+                    _openAiTestedOk = true;
+                }
+            }
+            else
+            {
+                ApiTestSummary = "対象外 (Wi-Fi/AIがOFF)";
+                ApiTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+                ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+            }
+
+            if (WifiEnabled && (MiningEnabled || AiEnabled))
+            {
+                var azureResult = await _retryPolicy.ExecuteWithTimeoutAsync(
+                    ct => _apiTestService.TestAzureSpeechAsync(AzureKey, AzureRegion, AzureCustomSubdomain, ct),
+                    TimeSpan.FromSeconds(25),
+                    maxAttempts: 3,
+                    baseDelay: TimeSpan.FromMilliseconds(400),
+                    backoffFactor: 2,
+                    CancellationToken.None);
+
+                if (azureResult.Message == "未入力")
+                {
+                    AzureTestSummary = "未入力";
+                    AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+                    AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+                }
+                else
+                {
+                    AzureTestSummary = azureResult.Success ? "利用可能です" : $"利用できません: {azureResult.Message}";
+                    AzureTestSummaryBrush = azureResult.Success
+                        ? new SolidColorBrush(Color.FromRgb(0x16, 0xA3, 0x4A))
+                        : new SolidColorBrush(Color.FromRgb(0xDC, 0x26, 0x26));
+                    AzureTestSummaryBackground = azureResult.Success
+                        ? new SolidColorBrush(Color.FromRgb(0xDC, 0xF7, 0xE3))
+                        : new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
+                }
+
+                if (azureResult.Success)
+                {
+                    _azureTestedKey = AzureKey;
+                    _azureTestedRegion = AzureRegion;
+                    _azureTestedSubdomain = AzureCustomSubdomain;
+                    _azureTestedOk = true;
+                }
+            }
+            else
+            {
+                AzureTestSummary = "対象外 (Wi-Fi/機能がOFF)";
+                AzureTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
+                AzureTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+            }
+
+            StatusMessage = "APIキー確認が完了しました";
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Validate API keys failed");
+            ErrorMessage = "APIキー確認に失敗しました";
+            _lastError = ex.Message;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void RaiseApiValidationStateChanged()
+    {
+        RaisePropertyChanged(nameof(CanRunApiValidation));
+        RaisePropertyChanged(nameof(ApiValidationGuideText));
+        ((AsyncRelayCommand)ValidateApiKeysCommand).RaiseCanExecuteChanged();
+    }
+
     private async Task TestOpenAiAsync()
     {
         ErrorMessage = "";
@@ -1140,13 +1410,13 @@ public class MainViewModel : BindableBase
             MiningEnabled = miningEnabled,
             AiEnabled = aiEnabled,
             WifiSsid = ConfigWifiSsid,
-            WifiPassword = ConfigWifiPassword,
+            WifiPassword = (ReuseWifiPassword && WifiPasswordStored) ? "" : ConfigWifiPassword,
             DucoUser = DucoUser,
-            DucoMinerKey = DucoMinerKey,
-            OpenAiKey = ConfigOpenAiKey,
+            DucoMinerKey = (ReuseDucoMinerKey && DucoKeyStored) ? "" : DucoMinerKey,
+            OpenAiKey = (ReuseOpenAiKey && OpenAiKeyStored) ? "" : ConfigOpenAiKey,
             OpenAiModel = ConfigOpenAiModel,
             OpenAiInstructions = ConfigOpenAiInstructions,
-            AzureKey = AzureKey,
+            AzureKey = (ReuseAzureKey && AzureKeyStored) ? "" : AzureKey,
             AzureRegion = AzureRegion,
             AzureCustomSubdomain = AzureCustomSubdomain,
             DisplaySleepSeconds = displaySleepSeconds,
@@ -1176,6 +1446,7 @@ public class MainViewModel : BindableBase
             if (TryGetBool(root, "wifi_pass_set", out var wifiPassSet))
             {
                 WifiPasswordStored = wifiPassSet;
+                ReuseWifiPassword = wifiPassSet;
             }
 
             if (TryGetBool(root, "wifi_enabled", out var wifiEnabled))
@@ -1198,19 +1469,25 @@ public class MainViewModel : BindableBase
             if (TryGetBool(root, "duco_key_set", out var ducoKeySet))
             {
                 DucoKeyStored = ducoKeySet;
+                ReuseDucoMinerKey = ducoKeySet;
             }
 
             if (TryGetString(root, "az_region", out var azRegion) && !string.IsNullOrWhiteSpace(azRegion))
             {
                 AzureRegion = azRegion;
             }
-            if (TryGetString(root, "az_endpoint", out var azEndpoint) && !string.IsNullOrWhiteSpace(azEndpoint))
+            if (TryGetString(root, "az_custom_subdomain", out var azSubdomain) && !string.IsNullOrWhiteSpace(azSubdomain))
+            {
+                AzureCustomSubdomain = azSubdomain;
+            }
+            else if (TryGetString(root, "az_endpoint", out var azEndpoint) && !string.IsNullOrWhiteSpace(azEndpoint))
             {
                 AzureCustomSubdomain = azEndpoint;
             }
             if (TryGetBool(root, "az_key_set", out var azKeySet))
             {
                 AzureKeyStored = azKeySet;
+                ReuseAzureKey = azKeySet;
             }
 
             if (TryGetString(root, "openai_model", out var openAiModel) && !string.IsNullOrWhiteSpace(openAiModel))
@@ -1224,11 +1501,13 @@ public class MainViewModel : BindableBase
             if (TryGetBool(root, "openai_key_set", out var openAiKeySet) && openAiKeySet && string.IsNullOrWhiteSpace(ConfigOpenAiKey))
             {
                 OpenAiKeyStored = true;
+                ReuseOpenAiKey = true;
                 MaskedOpenAiKey = "(保存済み)";
             }
             else if (TryGetBool(root, "openai_key_set", out openAiKeySet))
             {
                 OpenAiKeyStored = openAiKeySet;
+                ReuseOpenAiKey = openAiKeySet;
             }
 
             if (TryGetInt(root, "display_sleep_s", out var displaySleepSeconds))

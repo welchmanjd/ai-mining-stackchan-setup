@@ -58,6 +58,8 @@ public sealed class FlashStep : StepBase
         {
             // Must ensure serial port is closed before calling esptool/espflash
             context.SerialService.Close();
+            // Give the OS driver a short settle window before opening the same COM port again.
+            await Task.Delay(300, token);
 
             var result = await context.RetryPolicy.ExecuteWithTimeoutAsync(
                 ct => context.FlashService.FlashAsync(vm.SelectedPort.PortName, baud, erase, vm.FirmwarePath, ct),

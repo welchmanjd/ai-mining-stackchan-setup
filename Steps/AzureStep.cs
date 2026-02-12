@@ -22,12 +22,14 @@ public sealed class AzureStep : StepBase
 
         if (string.IsNullOrWhiteSpace(vm.AzureRegion))
         {
-            return Task.FromResult(StepResult.Fail("Azure Regionが未入力です", canRetry: false));
+            return Task.FromResult(StepResult.Fail("Azureリージョンが未入力です", canRetry: false));
         }
 
-        if (string.IsNullOrWhiteSpace(vm.AzureKey) && !vm.AzureKeyStored)
+        var hasKey = !string.IsNullOrWhiteSpace(vm.AzureKey);
+        var canReuseKey = vm.AzureKeyStored && vm.ReuseAzureKey;
+        if (!hasKey && !canReuseKey)
         {
-            return Task.FromResult(StepResult.Fail("Azure Speechキーが未入力です", canRetry: false));
+            return Task.FromResult(StepResult.Fail("Azureキーが未入力です", canRetry: false));
         }
 
         return Task.FromResult(StepResult.Ok());

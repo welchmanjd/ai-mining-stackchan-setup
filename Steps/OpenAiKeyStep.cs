@@ -7,7 +7,7 @@ public sealed class OpenAiKeyStep : StepBase
 {
     public override int Index => 7;
     public override string Title => "OpenAIキー";
-    public override string Description => "OpenAI APIキーを確認します。";
+    public override string Description => "OpenAI APIキーを設定します。";
     public override string PrimaryActionText => "次へ";
     public override bool CanRetry => false;
 
@@ -19,7 +19,9 @@ public sealed class OpenAiKeyStep : StepBase
             return Task.FromResult(StepResult.Skipped());
         }
 
-        if (string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey) && !vm.OpenAiKeyStored)
+        var hasKey = !string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey);
+        var canReuseKey = vm.OpenAiKeyStored && vm.ReuseOpenAiKey;
+        if (!hasKey && !canReuseKey)
         {
             return Task.FromResult(StepResult.Fail("OpenAI APIキーが未入力です", canRetry: false));
         }
