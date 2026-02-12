@@ -19,13 +19,42 @@ Set-StrictMode -Version Latest
 $Env = $Env.Trim()
 
 function Resolve-AppVersion([string]$repoRoot) {
-    $configPath = Join-Path $repoRoot 'src\config\config.h'
-    if (-not (Test-Path $configPath)) { return 'unknown' }
-    $line = Select-String -Path $configPath -Pattern '\"([0-9]+\.[0-9]+)\"\s*,\s*// app_version' | Select-Object -First 1
-    if ($line -and $line.Matches.Count -gt 0) {
-        return $line.Matches[0].Groups[1].Value
+    $ver = '0.0.0-dev'
+    $exactTag = ''
+    try {
+        $exactTag = (git -C $repoRoot describe --tags --exact-match HEAD).Trim()
+    } catch {
+        $exactTag = ''
     }
-    return 'unknown'
+    if (-not [string]::IsNullOrWhiteSpace($exactTag)) {
+        $ver = if ($exactTag.StartsWith('v')) { $exactTag.Substring(1) } else { $exactTag }
+    } else {
+        $nearestTag = ''
+        try {
+            $nearestTag = (git -C $repoRoot describe --tags --abbrev=0).Trim()
+        } catch {
+            $nearestTag = ''
+        }
+        if (-not [string]::IsNullOrWhiteSpace($nearestTag)) {
+            $nearestNorm = if ($nearestTag.StartsWith('v')) { $nearestTag.Substring(1) } else { $nearestTag }
+            $count = ''
+            try {
+                $count = (git -C $repoRoot rev-list "$nearestTag..HEAD" --count).Trim()
+            } catch {
+                $count = ''
+            }
+            if (-not [string]::IsNullOrWhiteSpace($count) -and $count -ne '0') {
+                $ver = "$nearestNorm-dev.$count"
+            } else {
+                $ver = $nearestNorm
+            }
+        }
+    }
+    try {
+        $dirty = (git -C $repoRoot status --porcelain)
+        if (-not [string]::IsNullOrWhiteSpace($dirty)) { $ver = "$ver-dirty" }
+    } catch { }
+    return $ver
 }
 
 function Resolve-BuildId([string]$repoRoot) {
