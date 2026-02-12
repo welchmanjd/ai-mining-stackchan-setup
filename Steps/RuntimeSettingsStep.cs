@@ -9,10 +9,10 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class RuntimeSettingsStep : StepBase
 {
-    public override int Index => 8;
-    public override string Title => "追加設定";
-    public override string Description => "追加設定を保存して再起動します。";
-    public override string PrimaryActionText => "送信";
+    public override int Index => 9;
+    public override string Title => "書き込み";
+    public override string Description => "APIキー確認と設定書き込みを実行します。";
+    public override string PrimaryActionText => "書き込み";
 
     public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
@@ -26,6 +26,7 @@ public sealed class RuntimeSettingsStep : StepBase
         {
             return StepResult.Fail("OpenAI APIキーが未入力です", canRetry: false);
         }
+
         if (vm.WifiEnabled && (vm.MiningEnabled || vm.AiEnabled) && string.IsNullOrWhiteSpace(vm.AzureKey) && !(vm.AzureKeyStored && vm.ReuseAzureKey))
         {
             return StepResult.Fail("Azureキーが未入力です", canRetry: false);
@@ -48,11 +49,11 @@ public sealed class RuntimeSettingsStep : StepBase
 
             if (!needOpenAi)
             {
-                SetSummaryNeutral(vm, openAi: true, "対象外（AI機能OFF）");
+                SetSummaryNeutral(vm, openAi: true, "対象外 (Wi-Fi/AI OFF)");
             }
             else if (openAiExcluded)
             {
-                SetSummaryNeutral(vm, openAi: true, "M5StackCore2内に保存されている情報を再利用するため検証対象外");
+                SetSummaryNeutral(vm, openAi: true, "M5StackCore2保存済みキーを再利用するため確認をスキップ");
                 openAiOk = true;
             }
             else
@@ -67,22 +68,22 @@ public sealed class RuntimeSettingsStep : StepBase
 
                 if (openAiResult.Success)
                 {
-                    SetSummaryOk(vm, openAi: true, "利用可能です");
+                    SetSummaryOk(vm, openAi: true, "有効確認に成功");
                     openAiOk = true;
                 }
                 else
                 {
-                    SetSummaryNg(vm, openAi: true, $"利用できません: {openAiResult.Message}");
+                    SetSummaryNg(vm, openAi: true, $"有効確認に失敗: {openAiResult.Message}");
                 }
             }
 
             if (!needAzure)
             {
-                SetSummaryNeutral(vm, openAi: false, "対象外（Wi-Fi/機能OFF）");
+                SetSummaryNeutral(vm, openAi: false, "対象外 (Wi-Fi/機能 OFF)");
             }
             else if (azureExcluded)
             {
-                SetSummaryNeutral(vm, openAi: false, "M5StackCore2内に保存されている情報を再利用するため検証対象外");
+                SetSummaryNeutral(vm, openAi: false, "M5StackCore2保存済みキーを再利用するため確認をスキップ");
                 azureOk = true;
             }
             else
@@ -97,19 +98,19 @@ public sealed class RuntimeSettingsStep : StepBase
 
                 if (azureResult.Success)
                 {
-                    SetSummaryOk(vm, openAi: false, "利用可能です");
+                    SetSummaryOk(vm, openAi: false, "有効確認に成功");
                     azureOk = true;
                 }
                 else
                 {
-                    SetSummaryNg(vm, openAi: false, $"利用できません: {azureResult.Message}");
+                    SetSummaryNg(vm, openAi: false, $"有効確認に失敗: {azureResult.Message}");
                 }
             }
 
             if (!openAiOk || !azureOk)
             {
-                vm.StatusMessage = "APIキー検証に失敗しました";
-                return StepResult.Fail("APIキー検証に失敗しました。設定は適用していません。", canRetry: true);
+                vm.StatusMessage = "APIキー確認に失敗しました";
+                return StepResult.Fail("APIキー確認に失敗しました。設定を確認してください。", canRetry: true);
             }
 
             vm.StatusMessage = "設定を送信中...";
@@ -153,23 +154,35 @@ public sealed class RuntimeSettingsStep : StepBase
 
             if (vm.CaptureSerialLogAfterReboot)
             {
-                vm.StatusMessage = "設定保存後の起動ログを取得中...(60秒)";
+                const int captureSeconds = 60;
                 try
                 {
-                    var rebootLog = await context.SerialService.CapturePostRebootLogAsync(
+                    var captureTask = context.SerialService.CapturePostRebootLogAsync(
                         vm.SelectedPort.PortName,
-                        TimeSpan.FromSeconds(60),
+                        TimeSpan.FromSeconds(captureSeconds),
                         token);
+
+                    for (var elapsed = 0; elapsed < captureSeconds; elapsed++)
+                    {
+                        vm.StatusMessage = $"60秒間ログを取ります。{elapsed + 1}秒";
+                        var completed = await Task.WhenAny(captureTask, Task.Delay(1000, token)) == captureTask;
+                        if (completed)
+                        {
+                            break;
+                        }
+                    }
+
+                    var rebootLog = await captureTask;
                     if (!string.IsNullOrWhiteSpace(rebootLog))
                     {
                         var path = LogService.CreateDeviceLogPath();
                         await File.WriteAllTextAsync(path, rebootLog, token);
                         vm.DeviceLogPath = path;
-                        vm.StatusMessage = $"設定を保存して再起動しました。ログ保存: {path}";
+                        vm.StatusMessage = $"設定を保存して起動しました。ログ保存: {path}";
                     }
                     else
                     {
-                        vm.StatusMessage = "設定を保存して再起動しました（60秒のログ出力なし）";
+                        vm.StatusMessage = "設定を保存して起動しました。(60秒のログ出力なし)";
                     }
                 }
                 catch (OperationCanceledException)
@@ -178,18 +191,19 @@ public sealed class RuntimeSettingsStep : StepBase
                 }
                 catch (Exception ex)
                 {
-                    vm.StatusMessage = $"設定を保存して再起動しました（ログ取得失敗: {ex.Message}）";
+                    vm.StatusMessage = $"設定を保存して起動しました。(ログ取得失敗: {ex.Message})";
                 }
             }
             else
             {
-                vm.StatusMessage = "設定を保存して再起動しました。";
+                vm.StatusMessage = "設定を保存して起動しました。";
             }
+
             return StepResult.Ok();
         }
         catch (OperationCanceledException)
         {
-            vm.StatusMessage = "中止しました";
+            vm.StatusMessage = "中断しました";
             return StepResult.Cancelled();
         }
         catch (TimeoutException ex)

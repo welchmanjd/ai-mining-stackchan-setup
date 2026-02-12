@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -75,8 +76,9 @@ public class MainViewModel : BindableBase
     private string _configOpenAiModel = "gpt-5-nano";
     private string _configOpenAiInstructions = "あなたはスタックチャンの会話AIです。日本語で短く答えてください。返答は120文字以内。箇条書き禁止。1〜2文。相手が『聞こえる？』等の確認なら、明るく短く返してください。";
     private string _displaySleepSecondsText = "60";
-    private bool _captureSerialLogAfterReboot = true;
+    private bool _captureSerialLogAfterReboot = false;
     private string _speakerVolumeText = "160";
+    private int _speakerVolumeRaw = 160;
     private string _shareAcceptedText = "シェア獲得したよ！";
     private string _attentionText = "Hi";
     private string _helloText = "こんにちはマイニングスタックチャンです";
@@ -107,6 +109,13 @@ public class MainViewModel : BindableBase
     private string _azureTestedRegion = "";
     private string _azureTestedSubdomain = "";
     private bool _azureTestedOk;
+    private readonly string[] _openAiModelOptions =
+    {
+        "gpt-5-nano",
+        "gpt-5-mini",
+        "gpt-4.1-mini",
+        "gpt-4o-mini"
+    };
 
     public MainViewModel()
     {
@@ -123,6 +132,7 @@ public class MainViewModel : BindableBase
             new DucoStep(),
             new AzureStep(),
             new OpenAiKeyStep(),
+            new AdditionalSettingsStep(),
             new RuntimeSettingsStep(),
             new CompleteStep()
         });
@@ -144,11 +154,13 @@ public class MainViewModel : BindableBase
         CreateSupportPackCommand = new AsyncRelayCommand(CreateSupportPackAsync);
 
         _stepController.SyncStepMetadata();
+        ConfigOpenAiModel = _configOpenAiModel;
         FirmwareInfoText = BuildFirmwareInfoText(FirmwarePath);
         RefreshFirmwareComparisonMessage();
     }
 
     public ObservableCollection<SerialPortInfo> Ports { get; }
+    public IReadOnlyList<string> OpenAiModelOptions => _openAiModelOptions;
 
     public int Step
     {
@@ -158,9 +170,11 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _step, value))
             {
                 _stepController.SyncStepMetadata();
+                UpdatePrimaryButtonTextForCurrentStep();
                 BackCommand.RaiseCanExecuteChanged();
                 SkipCommand.RaiseCanExecuteChanged();
                 RaisePropertyChanged(nameof(StepIndicator));
+                RaisePropertyChanged(nameof(IsNotFirstStep));
                 RaisePropertyChanged(nameof(IsCompleteStep));
                 RaisePropertyChanged(nameof(IsNotCompleteStep));
             }
@@ -291,6 +305,7 @@ public class MainViewModel : BindableBase
                 RaisePropertyChanged(nameof(FlashModeOverwrite));
                 RaisePropertyChanged(nameof(FlashModeErase));
                 RaisePropertyChanged(nameof(FlashModeSkip));
+                UpdatePrimaryButtonTextForCurrentStep();
             }
         }
     }
@@ -363,8 +378,9 @@ public class MainViewModel : BindableBase
     }
     public string LogDirectory => LogService.LogDirectory;
 
-    public bool IsCompleteStep => Step == 9;
-    public bool IsNotCompleteStep => Step != 9;
+    public bool IsNotFirstStep => Step > 1;
+    public bool IsCompleteStep => Step == 10;
+    public bool IsNotCompleteStep => Step != 10;
 
     public string ConfigWifiSsid
     {
@@ -561,7 +577,7 @@ public class MainViewModel : BindableBase
     public string ConfigOpenAiModel
     {
         get => _configOpenAiModel;
-        set => SetProperty(ref _configOpenAiModel, value);
+        set => SetProperty(ref _configOpenAiModel, NormalizeOpenAiModel(value));
     }
 
     public string ConfigOpenAiInstructions
@@ -585,7 +601,39 @@ public class MainViewModel : BindableBase
     public string SpeakerVolumeText
     {
         get => _speakerVolumeText;
-        set => SetProperty(ref _speakerVolumeText, value);
+        set
+        {
+            if (SetProperty(ref _speakerVolumeText, value))
+            {
+                if (int.TryParse(value, out var raw))
+                {
+                    raw = Math.Clamp(raw, 0, 255);
+                    if (_speakerVolumeRaw != raw)
+                    {
+                        _speakerVolumeRaw = raw;
+                        RaisePropertyChanged(nameof(SpeakerVolumeRaw));
+                    }
+                }
+            }
+        }
+    }
+
+    public int SpeakerVolumeRaw
+    {
+        get => _speakerVolumeRaw;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 255);
+            if (SetProperty(ref _speakerVolumeRaw, clamped))
+            {
+                var rawText = _speakerVolumeRaw.ToString();
+                if (_speakerVolumeText != rawText)
+                {
+                    _speakerVolumeText = rawText;
+                    RaisePropertyChanged(nameof(SpeakerVolumeText));
+                }
+            }
+        }
     }
 
     public string ShareAcceptedText
@@ -904,21 +952,14 @@ public class MainViewModel : BindableBase
         await ExecuteAbortToCompleteAsync();
     }
 
-    private async Task ExecuteAbortToCompleteAsync()
+    private Task ExecuteAbortToCompleteAsync()
     {
         _abortToCompleteRequested = false;
-        try
-        {
-            await CreateSupportPackAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Abort to complete failed");
-        }
-
-        Step = 8;
+        Step = 1;
         _stepController.SyncStepMetadata();
-        StatusMessage = "完了画面に移動しました";
+        StatusMessage = "中断してステップ1に戻りました";
+        ErrorMessage = string.Empty;
+        return Task.CompletedTask;
     }
 
     private void GoBack()
@@ -935,6 +976,14 @@ public class MainViewModel : BindableBase
         _stepController.SyncStepMetadata();
         BackCommand.RaiseCanExecuteChanged();
         SkipCommand.RaiseCanExecuteChanged();
+    }
+
+    private void UpdatePrimaryButtonTextForCurrentStep()
+    {
+        if (Step == 2)
+        {
+            PrimaryButtonText = FlashModeSkip ? "書き込みをスキップ" : "書き込み";
+        }
     }
 
     private async Task RunTestsAsync()
@@ -1849,5 +1898,25 @@ public class MainViewModel : BindableBase
         var build = string.IsNullOrWhiteSpace(manifest.BuildId) ? "unknown" : manifest.BuildId;
         return $"ver={ver} / build={build} / size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
     }
+
+    private string NormalizeOpenAiModel(string? value)
+    {
+        var trimmed = (value ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return _openAiModelOptions[0];
+        }
+
+        foreach (var option in _openAiModelOptions)
+        {
+            if (string.Equals(option, trimmed, StringComparison.Ordinal))
+            {
+                return option;
+            }
+        }
+
+        return _openAiModelOptions[0];
+    }
+
 }
 

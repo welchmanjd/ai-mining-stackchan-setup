@@ -1,7 +1,7 @@
-﻿<Window x:Class="AiStackchanSetup.MainWindow"
+<Window x:Class="AiStackchanSetup.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AIスタックチャン セットアップ" Height="640" Width="860"
+        Title="AIマイニングスタックチャン セットアップ" Height="640" Width="860"
         WindowStartupLocation="CenterScreen"
         Closing="Window_OnClosing">
     <Grid Margin="24">
@@ -12,8 +12,8 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="M5Stack Core2 AIスタックチャン セットアップ" FontSize="20" FontWeight="SemiBold" />
-            <TextBlock Text="知識ゼロでも迷わず進める 9ステップ" Foreground="#6B7280" />
+            <TextBlock Text="AIマイニングスタックチャン セットアップ" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock Text="知識ゼロでも迷わず進めるセットアップ" Foreground="#6B7280" />
             <TextBlock Text="{Binding StepIndicator, StringFormat=ステップ: {0}}" FontWeight="SemiBold" Margin="0,8,0,0" />
         </StackPanel>
 
@@ -30,50 +30,69 @@
                     <Grid Grid.Row="1" Margin="0,16,0,0">
                         <Grid>
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=1}">
-                                <TextBlock Text="USBでM5Stack Core2を接続してください。" Margin="0,0,0,8" />
-                                <ComboBox ItemsSource="{Binding Ports}"
-                                          SelectedItem="{Binding SelectedPort}"
-                                          DisplayMemberPath="DisplayName"
-                                          IsEnabled="{Binding IsManualPortSelection}"
-                                          Visibility="{Binding IsManualPortSelection, Converter={StaticResource BoolToVisibility}}"
-                                          Margin="0,0,0,8" />
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
 
-                                <TextBlock Text="{Binding Step1Help}" Foreground="#B45309" Margin="0,0,0,8" />
-
-                                <Expander Header="詳細 (Advanced)" IsExpanded="{Binding IsAdvancedPanelOpen}">
-                                    <StackPanel>
-                                        <CheckBox Content="手動でCOMポートを選択" IsChecked="{Binding IsManualPortSelection}" Margin="0,0,0,6" />
-                                        <TextBlock Text="候補が出ない場合はUSBケーブル/ポート/ドライバを確認してください。" />
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="USBでM5Stack Core2を接続してください。" Margin="0,0,0,8" />
+                                        <ComboBox ItemsSource="{Binding Ports}"
+                                                  SelectedItem="{Binding SelectedPort}"
+                                                  DisplayMemberPath="DisplayName"
+                                                  IsEnabled="{Binding IsManualPortSelection}"
+                                                  Visibility="{Binding IsManualPortSelection, Converter={StaticResource BoolToVisibility}}"
+                                                  Margin="0,0,0,8" />
+                                        <TextBlock Text="{Binding Step1Help}" Foreground="#B45309" Margin="0,0,0,8" />
                                     </StackPanel>
-                                </Expander>
+
+                                    <Expander Grid.Row="2" Header="詳細 (Advanced)" IsExpanded="{Binding IsAdvancedPanelOpen}">
+                                        <StackPanel>
+                                            <CheckBox Content="手動でCOMポートを選択" IsChecked="{Binding IsManualPortSelection}" Margin="0,0,0,6" />
+                                            <TextBlock Text="候補が出ない場合はUSBケーブル/ポート/ドライバを確認してください。" />
+                                        </StackPanel>
+                                    </Expander>
+                                </Grid>
                             </StackPanel>
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=2}">
-                                <TextBlock Text="ファームウェアを書き込みます。" Margin="0,0,0,8" />
-                                <StackPanel Margin="0,0,0,8">
-                                    <RadioButton Content="ファームウェアを上書き" IsChecked="{Binding FlashModeOverwrite}" GroupName="FlashMode" Margin="0,0,0,4" />
-                                    <RadioButton Content="フラッシュを消去して上書き" IsChecked="{Binding FlashModeErase}" GroupName="FlashMode" Margin="0,0,0,4" />
-                                    <RadioButton Content="書き込みをスキップして設定のみ行う" IsChecked="{Binding FlashModeSkip}" GroupName="FlashMode" />
-                                </StackPanel>
-                                <TextBlock Text="{Binding FirmwarePath, StringFormat=ファイル: {0}}" Margin="0,0,0,4" />
-                                <TextBlock Text="{Binding FirmwareInfoText, StringFormat=書き込めるFW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
-                                <TextBlock Text="{Binding CurrentFirmwareInfoText, StringFormat=現在動作中FW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,4" />
-                                <TextBlock Text="{Binding FirmwareCompareMessage}" FontSize="12" Foreground="#B45309" Margin="0,0,0,8" TextWrapping="Wrap" />
-                                <ProgressBar IsIndeterminate="True" Height="8" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8" />
-                                <TextBlock Text="{Binding FlashStatus}" Foreground="#6B7280" Margin="0,0,0,8" />
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
 
-                                <Expander Header="詳細 (Advanced)">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                            <TextBlock Text="Baud:" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                            <TextBox Width="120" Text="{Binding FlashBaud}" />
+                                    <StackPanel Grid.Row="0">
+                                        <TextBlock Text="ファームウェアを書き込みます。" Margin="0,0,0,8" />
+                                        <StackPanel Margin="0,0,0,8">
+                                            <RadioButton Content="ファームウェアを上書き" IsChecked="{Binding FlashModeOverwrite}" GroupName="FlashMode" Margin="0,0,0,4" />
+                                            <RadioButton Content="フラッシュを消去して上書き" IsChecked="{Binding FlashModeErase}" GroupName="FlashMode" Margin="0,0,0,4" />
+                                            <RadioButton Content="書き込みをスキップして設定のみ行う" IsChecked="{Binding FlashModeSkip}" GroupName="FlashMode" />
                                         </StackPanel>
-                                        <Button Content="ファイルを選ぶ" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BrowseFirmwareCommand}" Margin="0,0,0,6" />
-                                        <TextBlock Text="書き込みログ" FontWeight="SemiBold" Margin="0,4,0,2" />
-                                        <TextBlock Text="{Binding FlashLogPath}" FontSize="12" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,0,0,6" />
-                                        <Button Content="書き込みログを開く" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenFlashLogCommand}" />
+                                        <TextBlock Text="{Binding FirmwarePath, StringFormat=ファイル: {0}}" Margin="0,0,0,4" />
+                                        <TextBlock Text="{Binding FirmwareInfoText, StringFormat=書き込めるFW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
+                                        <TextBlock Text="{Binding CurrentFirmwareInfoText, StringFormat=現在動作中FW: {0}}" FontSize="12" Foreground="#6B7280" Margin="0,0,0,4" />
+                                        <TextBlock Text="{Binding FirmwareCompareMessage}" FontSize="12" Foreground="#B45309" Margin="0,0,0,8" TextWrapping="Wrap" />
+                                        <ProgressBar IsIndeterminate="True" Height="8" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8" />
+                                        <TextBlock Text="{Binding FlashStatus}" Foreground="#6B7280" Margin="0,0,0,8" />
                                     </StackPanel>
-                                </Expander>
+
+                                    <Expander Grid.Row="2" Header="詳細 (Advanced)">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                <TextBlock Text="Baud:" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                                <TextBox Width="120" Text="{Binding FlashBaud}" />
+                                            </StackPanel>
+                                            <Button Content="ファイルを選ぶ" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BrowseFirmwareCommand}" Margin="0,0,0,6" />
+                                            <TextBlock Text="書き込みログ" FontWeight="SemiBold" Margin="0,4,0,2" />
+                                            <TextBlock Text="{Binding FlashLogPath}" FontSize="12" Foreground="#6B7280" TextWrapping="Wrap" Margin="0,0,0,6" />
+                                            <Button Content="書き込みログを開く" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenFlashLogCommand}" />
+                                        </StackPanel>
+                                    </Expander>
+                                </Grid>
                             </StackPanel>
 
                             <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=3}">
@@ -97,7 +116,6 @@
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="Wi-Fi パスワード" />
                                     <PasswordBox x:Name="WifiPasswordBox" PasswordChanged="WifiPasswordBox_OnPasswordChanged" IsEnabled="{Binding CanEditWifiPassword}" />
-                                    <TextBlock Text="{Binding WifiPasswordStored, StringFormat=保存済み: {0}}" FontSize="12" Foreground="#6B7280" />
                                     <CheckBox Content="M5StackCore2内に保存されている情報を再利用"
                                               IsChecked="{Binding ReuseWifiPassword}"
                                               IsEnabled="{Binding CanReuseWifiPassword}"
@@ -120,7 +138,6 @@
                                         <StackPanel Margin="0,0,0,8">
                                             <TextBlock Text="Duino-coin マイナーキー" />
                                             <PasswordBox x:Name="DucoMinerKeyBox" PasswordChanged="DucoMinerKeyBox_OnPasswordChanged" IsEnabled="{Binding CanEditDucoMinerKey}" />
-                                            <TextBlock Text="{Binding DucoKeyStored, StringFormat=保存済み: {0}}" FontSize="12" Foreground="#6B7280" />
                                             <CheckBox Content="M5StackCore2内に保存されている情報を再利用"
                                                       IsChecked="{Binding ReuseDucoMinerKey}"
                                                       IsEnabled="{Binding CanReuseDucoMinerKey}"
@@ -143,15 +160,14 @@
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="Azureキー" />
                                     <PasswordBox x:Name="AzureKeyBox" PasswordChanged="AzureKeyBox_OnPasswordChanged" IsEnabled="{Binding CanEditAzureKey}" />
-                                    <TextBlock Text="{Binding AzureKeyStored, StringFormat=保存済み: {0}}" FontSize="12" Foreground="#6B7280" />
                                     <CheckBox Content="M5StackCore2内に保存されている情報を再利用"
                                               IsChecked="{Binding ReuseAzureKey}"
                                               IsEnabled="{Binding CanReuseAzureKey}"
                                               Visibility="{Binding CanReuseAzureKey, Converter={StaticResource BoolToVisibility}}" />
                                 </StackPanel>
-                                <TextBlock Text="APIキーの有効確認は最終ステップでまとめて実施します。"
-                                           FontSize="12" Foreground="#6B7280" />
-                                <TextBlock Text="通常は下の入力欄は空欄のままで大丈夫です。" FontSize="12" Foreground="#6B7280" Margin="0,4,0,8" />
+
+                                <Border Height="1" Background="#E5E7EB" Margin="0,10,0,12" />
+                                <TextBlock Text="通常は下の入力欄は空欄のままで大丈夫です。" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="カスタムサブドメイン（もしあれば）" />
                                     <TextBox Text="{Binding AzureCustomSubdomain}" />
@@ -169,31 +185,17 @@
                                               IsEnabled="{Binding CanReuseOpenAiKey}"
                                               Visibility="{Binding CanReuseOpenAiKey, Converter={StaticResource BoolToVisibility}}" />
                                 </StackPanel>
-                                <TextBlock Text="APIキーの有効確認は最終ステップでまとめて実施します。"
-                                           FontSize="12" Foreground="#6B7280" />
                             </StackPanel>
 
-                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=8}">
+                            <Grid Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=8}">
                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                                     <StackPanel>
-                                        <TextBlock Text="追加設定を入力します。" Margin="0,0,0,8" />
-                                        <TextBlock Text="送信ボタンで保存して再起動します。APIキー検証はこのステップで実施します。" FontSize="12" Foreground="#6B7280" Margin="0,0,0,8" />
-
-                                        <GroupBox Header="APIキー有効確認（最終確認）" Margin="0,0,0,10">
-                                            <StackPanel Margin="8,6,8,6">
-                                                <TextBlock Text="{Binding ApiValidationGuideText}" Foreground="#6B7280" Margin="0,0,0,8" />
-                                                <Button Content="APIキーの有効確認を実行" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ValidateApiKeysCommand}" IsEnabled="{Binding CanRunApiValidation}" Margin="0,0,0,8" />
-                                                <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,0,0,6">
-                                                    <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
-                                                </Border>
-                                                <Border Background="{Binding AzureTestSummaryBackground}" CornerRadius="6" Padding="8">
-                                                    <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azure: {0}}" Foreground="{Binding AzureTestSummaryBrush}" />
-                                                </Border>
-                                            </StackPanel>
-                                        </GroupBox>
+                                        <TextBlock Text="初期プロンプト以降の追加設定を入力します。" Margin="0,0,0,8" />
 
                                         <StackPanel Margin="0,0,0,8">
                                             <TextBlock Text="初期プロンプト (OpenAI instructions)" />
+                                            <TextBlock Text="この文章は、会話のたびにAIへ送られる『基本ルール』です。性格・話し方・禁止事項などを先に伝えます。"
+                                                       FontSize="12" Foreground="#6B7280" Margin="0,2,0,4" TextWrapping="Wrap" />
                                             <TextBox Text="{Binding ConfigOpenAiInstructions}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" />
                                         </StackPanel>
 
@@ -202,18 +204,33 @@
                                             <TextBox Text="{Binding DisplaySleepSecondsText}" />
                                         </StackPanel>
 
-                                        <CheckBox Content="書き込み後にシリアルログを60秒取得する"
+                                        <TextBlock Text="トラブル時の調査用です。必要なときだけ有効にしてください。"
+                                                   FontSize="12" Foreground="#6B7280" Margin="0,2,0,4" TextWrapping="Wrap" />
+                                        <CheckBox Content="（任意）書き込み後に動作ログを60秒取得する"
                                                   IsChecked="{Binding CaptureSerialLogAfterReboot}"
                                                   Margin="0,0,0,8" />
 
                                         <StackPanel Margin="0,0,0,8">
                                             <TextBlock Text="OpenAIモデル" />
-                                            <TextBox Text="{Binding ConfigOpenAiModel}" />
+                                            <ComboBox ItemsSource="{Binding OpenAiModelOptions}"
+                                                      SelectedValuePath="."
+                                                      SelectedValue="{Binding ConfigOpenAiModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                      HorizontalAlignment="Left"
+                                                      MinWidth="140"
+                                                      IsEditable="False"
+                                                      IsTextSearchEnabled="True" />
                                         </StackPanel>
 
                                         <StackPanel Margin="0,0,0,8">
-                                            <TextBlock Text="スピーカー音量 (0-255)" />
-                                            <TextBox Text="{Binding SpeakerVolumeText}" />
+                                            <TextBlock Text="スピーカー音量（生値 0-255）" />
+                                            <TextBlock Text="入力値をそのまま実機に送信します（補正なし）。"
+                                                       FontSize="12" Foreground="#6B7280" Margin="0,2,0,4" TextWrapping="Wrap" />
+                                            <Slider Minimum="0"
+                                                    Maximum="255"
+                                                    TickFrequency="5"
+                                                    IsSnapToTickEnabled="False"
+                                                    Value="{Binding SpeakerVolumeRaw}" />
+                                            <TextBlock Text="{Binding SpeakerVolumeText, StringFormat=実機送信値: {0} / 255}" FontSize="12" Foreground="#6B7280" />
                                         </StackPanel>
 
                                         <StackPanel Margin="0,0,0,8">
@@ -232,9 +249,32 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </ScrollViewer>
-                            </StackPanel>
+                            </Grid>
 
-                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=9}">
+                            <Grid Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=9}">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel>
+                                        <TextBlock Text="APIキー確認と設定書き込みを実行します。" Margin="0,0,0,8" />
+                                        <TextBlock Text="「書き込み」を押すと、有効確認のあと設定を保存して再起動します。"
+                                                   FontSize="12" Foreground="#6B7280" Margin="0,0,0,10" />
+
+                                        <GroupBox Header="APIキー有効確認（最終確認）" Margin="0,0,0,10">
+                                            <StackPanel Margin="8,6,8,6">
+                                                <TextBlock Text="{Binding ApiValidationGuideText}" Foreground="#6B7280" Margin="0,0,0,8" />
+                                                <Button Content="APIキーの有効確認を実行" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding ValidateApiKeysCommand}" IsEnabled="{Binding CanRunApiValidation}" Margin="0,0,0,8" />
+                                                <Border Background="{Binding ApiTestSummaryBackground}" CornerRadius="6" Padding="8" Margin="0,0,0,6">
+                                                    <TextBlock Text="{Binding ApiTestSummary, StringFormat=OpenAI: {0}}" Foreground="{Binding ApiTestSummaryBrush}" />
+                                                </Border>
+                                                <Border Background="{Binding AzureTestSummaryBackground}" CornerRadius="6" Padding="8">
+                                                    <TextBlock Text="{Binding AzureTestSummary, StringFormat=Azure: {0}}" Foreground="{Binding AzureTestSummaryBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </GroupBox>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+
+                            <StackPanel Visibility="{Binding Step, Converter={StaticResource StepToVisibilityConverter}, ConverterParameter=10}">
                                 <TextBlock Text="セットアップ完了!" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8" />
                                 <TextBlock Text="AIマイニングスタックチャンが起動します。" Margin="0,0,0,6" />
                                 <TextBlock Text="困ったらサポート用ログを作成してください。" Margin="0,0,0,12" />
@@ -262,8 +302,8 @@
 
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Content="中止" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CancelCommand}" IsEnabled="{Binding CanCancel}" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
-                <Button Content="中断して完了" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding AbortToCompleteCommand}" Visibility="{Binding IsNotCompleteStep, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
-                <Button Content="閉じる" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CloseCommand}" Margin="0,0,12,0" />
+                <Button Content="戻る" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BackCommand}" Visibility="{Binding IsNotFirstStep, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
+                <Button Content="中断して最初に戻る" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding AbortToCompleteCommand}" Visibility="{Binding IsNotCompleteStep, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
                 <Button Content="{Binding PrimaryButtonText}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding PrimaryCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
             </StackPanel>
         </Grid>

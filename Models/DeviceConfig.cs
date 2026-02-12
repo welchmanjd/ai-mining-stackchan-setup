@@ -1,4 +1,4 @@
-﻿namespace AiStackchanSetup.Models;
+namespace AiStackchanSetup.Models;
 
 public class DeviceConfig
 {
