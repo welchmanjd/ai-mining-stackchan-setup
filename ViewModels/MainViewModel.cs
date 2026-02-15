@@ -199,7 +199,7 @@ public class MainViewModel : BindableBase
 
     public string StepIndicator => $"{Step}/{_totalSteps}";
     public double StepProgressPercent => _totalSteps <= 1 ? 0 : ((double)(Step - 1) / (_totalSteps - 1)) * 100;
-    public string BackButtonText => $"前の手順（{GetStepLabel(Step - 1)}）に戻る";
+    public string BackButtonText => $"前の手順（{_stepController.GetPreviousStepTitle(Step)}）に戻る";
     public string AbortButtonText => "ここまでの設定を保存して終了";
     public string InputStatusText
     {
@@ -406,8 +406,8 @@ public class MainViewModel : BindableBase
     public string LogDirectory => LogService.LogDirectory;
 
     public bool IsNotFirstStep => Step > 1;
-    public bool IsCompleteStep => Step == 10;
-    public bool IsNotCompleteStep => Step != 10;
+    public bool IsCompleteStep => Step == _stepController.LastStepIndex;
+    public bool IsNotCompleteStep => !IsCompleteStep;
 
     public string ConfigWifiSsid
     {
@@ -2065,23 +2065,6 @@ public class MainViewModel : BindableBase
         }
 
         return (filled, missing);
-    }
-
-    private string GetStepLabel(int step)
-    {
-        return step switch
-        {
-            1 => "接続",
-            2 => "書き込み",
-            3 => "機能ON/OFF",
-            4 => "Wi-Fi設定",
-            5 => "Duino-coin設定",
-            6 => "Azure設定",
-            7 => "OpenAI API設定",
-            8 => "追加設定",
-            9 => "実行",
-            _ => "手順"
-        };
     }
 
 }

@@ -343,7 +343,7 @@ public class SerialService : IDisposable
 
         return new ConfigResult
         {
-            Success = warnings.Count == 0,
+            Success = true,
             Message = warnings.Count > 0 ? $"一部キー未対応: {string.Join(", ", warnings)}" : "OK"
         };
     }

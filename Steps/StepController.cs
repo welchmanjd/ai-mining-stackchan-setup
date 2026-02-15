@@ -27,6 +27,7 @@ public sealed class StepController
     }
 
     public int TotalSteps => _steps.Count;
+    public int LastStepIndex => _steps[^1].Index;
 
     public IStep CurrentStep => _current ??= GetStep(_viewModel.Step);
 
@@ -84,6 +85,12 @@ public sealed class StepController
         {
             MoveNext();
         }
+    }
+
+    public string GetPreviousStepTitle(int currentStepIndex)
+    {
+        var previous = _steps.LastOrDefault(s => s.Index < currentStepIndex);
+        return previous?.Title ?? "手順";
     }
 
     private IStep GetStep(int index)
