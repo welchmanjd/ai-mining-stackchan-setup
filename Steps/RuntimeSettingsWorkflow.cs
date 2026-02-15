@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
@@ -35,11 +35,11 @@ internal sealed class RuntimeSettingsWorkflow
 
         if (!needOpenAi)
         {
-            ApiValidationSummaryPresenter.SetOpenAiNeutral(_vm, StepMessages.OpenAiPrecheckNotRequired);
+            ApiValidationSummaryPresenter.SetOpenAiNeutral(_vm, StepText.OpenAiPrecheckNotRequired);
         }
         else if (openAiExcluded)
         {
-            ApiValidationSummaryPresenter.SetOpenAiNeutral(_vm, StepMessages.ApiPrecheckSkippedUsingStoredKey);
+            ApiValidationSummaryPresenter.SetOpenAiNeutral(_vm, StepText.ApiPrecheckSkippedUsingStoredKey);
             openAiOk = true;
         }
         else
@@ -54,22 +54,22 @@ internal sealed class RuntimeSettingsWorkflow
 
             if (openAiResult.Success)
             {
-                ApiValidationSummaryPresenter.SetOpenAiOk(_vm, StepMessages.ApiPrecheckSuccess);
+                ApiValidationSummaryPresenter.SetOpenAiOk(_vm, StepText.ApiPrecheckSuccess);
                 openAiOk = true;
             }
             else
             {
-                ApiValidationSummaryPresenter.SetOpenAiNg(_vm, $"{StepMessages.ApiPrecheckFailedPrefix}: {openAiResult.Message}");
+                ApiValidationSummaryPresenter.SetOpenAiNg(_vm, $"{StepText.ApiPrecheckFailedPrefix}: {openAiResult.Message}");
             }
         }
 
         if (!needAzure)
         {
-            ApiValidationSummaryPresenter.SetAzureNeutral(_vm, StepMessages.AzurePrecheckNotRequired);
+            ApiValidationSummaryPresenter.SetAzureNeutral(_vm, StepText.AzurePrecheckNotRequired);
         }
         else if (azureExcluded)
         {
-            ApiValidationSummaryPresenter.SetAzureNeutral(_vm, StepMessages.ApiPrecheckSkippedUsingStoredKey);
+            ApiValidationSummaryPresenter.SetAzureNeutral(_vm, StepText.ApiPrecheckSkippedUsingStoredKey);
             azureOk = true;
         }
         else
@@ -84,23 +84,23 @@ internal sealed class RuntimeSettingsWorkflow
 
             if (azureResult.Success)
             {
-                ApiValidationSummaryPresenter.SetAzureOk(_vm, StepMessages.ApiPrecheckSuccess);
+                ApiValidationSummaryPresenter.SetAzureOk(_vm, StepText.ApiPrecheckSuccess);
                 azureOk = true;
             }
             else
             {
-                ApiValidationSummaryPresenter.SetAzureNg(_vm, $"{StepMessages.ApiPrecheckFailedPrefix}: {azureResult.Message}");
+                ApiValidationSummaryPresenter.SetAzureNg(_vm, $"{StepText.ApiPrecheckFailedPrefix}: {azureResult.Message}");
             }
         }
 
         return openAiOk && azureOk
             ? RuntimeWorkflowResult.Ok()
-            : RuntimeWorkflowResult.Fail(StepMessages.ApiKeyValidationRetryGuidance);
+            : RuntimeWorkflowResult.Fail(StepText.ApiKeyValidationRetryGuidance);
     }
 
     public async Task<RuntimeWorkflowResult> SendAndApplyConfigAsync(DeviceConfig config)
     {
-        _vm.StatusMessage = StepMessages.ConfigSendInProgress;
+        _vm.StatusMessage = StepText.ConfigSendInProgress;
 
         var setResult = await _context.RetryPolicy.ExecuteWithTimeoutAsync(
             ct => _context.SerialService.SendConfigAsync(_vm.SelectedPort!.PortName, config, ct),
@@ -110,15 +110,15 @@ internal sealed class RuntimeSettingsWorkflow
             backoffFactor: 2,
             _token);
 
-        if (!setResult.Success)
+        if (setResult.IsFailure)
         {
-            _vm.ErrorMessage = $"{StepMessages.ConfigSendFailed}: {setResult.Message}";
+            _vm.ErrorMessage = $"{StepText.ConfigSendFailed}: {setResult.Message}";
             _vm.LastError = setResult.Message;
-            _vm.StatusMessage = StepMessages.ConfigSendFailed;
-            return RuntimeWorkflowResult.Fail($"{StepMessages.ConfigSendFailed}: {setResult.Message}");
+            _vm.StatusMessage = StepText.ConfigSendFailed;
+            return RuntimeWorkflowResult.Fail($"{StepText.ConfigSendFailed}: {setResult.Message}");
         }
 
-        if (!string.IsNullOrWhiteSpace(setResult.Message) && !setResult.Message.Equals("OK", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(setResult.Message) && !setResult.HasMessage("OK"))
         {
             _vm.StatusMessage = setResult.Message;
         }
@@ -131,12 +131,12 @@ internal sealed class RuntimeSettingsWorkflow
             backoffFactor: 2,
             _token);
 
-        if (!applyResult.Success)
+        if (applyResult.IsFailure)
         {
-            _vm.ErrorMessage = $"{StepMessages.ConfigSaveFailed}: {applyResult.Message}";
+            _vm.ErrorMessage = $"{StepText.ConfigSaveFailed}: {applyResult.Message}";
             _vm.LastError = applyResult.Message;
-            _vm.StatusMessage = StepMessages.ConfigSaveFailed;
-            return RuntimeWorkflowResult.Fail($"{StepMessages.ConfigSaveFailed}: {applyResult.Message}");
+            _vm.StatusMessage = StepText.ConfigSaveFailed;
+            return RuntimeWorkflowResult.Fail($"{StepText.ConfigSaveFailed}: {applyResult.Message}");
         }
 
         return RuntimeWorkflowResult.Ok();
@@ -150,31 +150,31 @@ internal sealed class RuntimeSettingsWorkflow
             return RuntimeWorkflowResult.Ok();
         }
 
-        _vm.StatusMessage = StepMessages.ConfigReverifyInProgress;
+        _vm.StatusMessage = StepText.ConfigReverifyInProgress;
 
         var retrySet = await _context.SerialService.SendConfigAsync(_vm.SelectedPort!.PortName, config, _token);
-        if (!retrySet.Success)
+        if (retrySet.IsFailure)
         {
-            return RuntimeWorkflowResult.Fail($"{StepMessages.ConfigVerificationFailed}: {verify.Detail}");
+            return RuntimeWorkflowResult.Fail($"{StepText.ConfigVerificationFailed}: {verify.Detail}");
         }
 
         var retryApply = await _context.SerialService.ApplyConfigAsync(_vm.SelectedPort!.PortName, _token);
-        if (!retryApply.Success)
+        if (retryApply.IsFailure)
         {
-            return RuntimeWorkflowResult.Fail($"{StepMessages.ConfigVerificationFailed}: {verify.Detail}");
+            return RuntimeWorkflowResult.Fail($"{StepText.ConfigVerificationFailed}: {verify.Detail}");
         }
 
         var verify2 = await VerifyFlagsAsync();
         return verify2.Succeeded
             ? RuntimeWorkflowResult.Ok()
-            : RuntimeWorkflowResult.Fail($"{StepMessages.ConfigVerificationFailed}: {verify2.Detail}");
+            : RuntimeWorkflowResult.Fail($"{StepText.ConfigVerificationFailed}: {verify2.Detail}");
     }
 
     public async Task CapturePostRebootLogIfEnabledAsync()
     {
         if (!_vm.CaptureSerialLogAfterReboot)
         {
-            _vm.StatusMessage = StepMessages.ConfigSavedAndRebooted;
+            _vm.StatusMessage = StepText.ConfigSavedAndRebooted;
             return;
         }
 
@@ -188,7 +188,7 @@ internal sealed class RuntimeSettingsWorkflow
 
             for (var elapsed = 0; elapsed < captureSeconds; elapsed++)
             {
-                _vm.StatusMessage = string.Format(StepMessages.PostRebootLogCaptureProgressFormat, elapsed + 1);
+                _vm.StatusMessage = string.Format(StepText.PostRebootLogCaptureProgressFormat, elapsed + 1);
                 var completed = await Task.WhenAny(captureTask, Task.Delay(1000, _token)) == captureTask;
                 if (completed)
                 {
@@ -202,11 +202,11 @@ internal sealed class RuntimeSettingsWorkflow
                 var path = LogService.CreateDeviceLogPath();
                 await File.WriteAllTextAsync(path, rebootLog, _token);
                 _vm.DeviceLogPath = path;
-                _vm.StatusMessage = string.Format(StepMessages.ConfigSavedAndRebootedWithLogPathFormat, path);
+                _vm.StatusMessage = string.Format(StepText.ConfigSavedAndRebootedWithLogPathFormat, path);
             }
             else
             {
-                _vm.StatusMessage = StepMessages.ConfigSavedAndRebootedNoLog;
+                _vm.StatusMessage = StepText.ConfigSavedAndRebootedNoLog;
             }
         }
         catch (OperationCanceledException)
@@ -215,14 +215,14 @@ internal sealed class RuntimeSettingsWorkflow
         }
         catch (Exception ex)
         {
-            _vm.StatusMessage = string.Format(StepMessages.ConfigSavedAndRebootedLogCaptureFailedFormat, ex.Message);
+            _vm.StatusMessage = string.Format(StepText.ConfigSavedAndRebootedLogCaptureFailedFormat, ex.Message);
         }
     }
 
     private async Task<RuntimeWorkflowResult> VerifyFlagsAsync()
     {
         var cfg = await _context.SerialService.GetConfigJsonAsync(_vm.SelectedPort!.PortName, _token);
-        if (!cfg.Success || string.IsNullOrWhiteSpace(cfg.Json))
+        if (cfg.IsFailure || string.IsNullOrWhiteSpace(cfg.Json))
         {
             return RuntimeWorkflowResult.Fail(cfg.Message);
         }
@@ -271,3 +271,4 @@ internal sealed class RuntimeSettingsWorkflow
         }
     }
 }
+

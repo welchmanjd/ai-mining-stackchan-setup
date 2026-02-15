@@ -11,25 +11,32 @@ public sealed class AzureStep : StepBase
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
-        var vm = context.ViewModel;
-        var needAzure = vm.WifiEnabled && (vm.MiningEnabled || vm.AiEnabled);
-        if (!needAzure)
-        {
-            return Task.FromResult(StepResult.Skipped());
-        }
+        return ExecuteStepAsync(
+            context,
+            token,
+            () =>
+            {
+                var vm = context.ViewModel;
+                var needAzure = vm.WifiEnabled && (vm.MiningEnabled || vm.AiEnabled);
+                if (!needAzure)
+                {
+                    return Task.FromResult(StepResult.Skipped());
+                }
 
-        if (string.IsNullOrWhiteSpace(vm.AzureRegion))
-        {
-            return Task.FromResult(StepResult.Fail(StepMessages.AzureRegionRequired, canRetry: false));
-        }
+                if (string.IsNullOrWhiteSpace(vm.AzureRegion))
+                {
+                    return Task.FromResult(StepResult.Fail(StepText.AzureRegionRequired, canRetry: false));
+                }
 
-        var hasKey = !string.IsNullOrWhiteSpace(vm.AzureKey);
-        var canReuseKey = vm.AzureKeyStored && vm.ReuseAzureKey;
-        if (!hasKey && !canReuseKey)
-        {
-            return Task.FromResult(StepResult.Fail(StepMessages.AzureKeyRequired, canRetry: false));
-        }
+                var hasKey = !string.IsNullOrWhiteSpace(vm.AzureKey);
+                var canReuseKey = vm.AzureKeyStored && vm.ReuseAzureKey;
+                if (!hasKey && !canReuseKey)
+                {
+                    return Task.FromResult(StepResult.Fail(StepText.AzureKeyRequired, canRetry: false));
+                }
 
-        return Task.FromResult(StepResult.Ok());
+                return Task.FromResult(StepResult.Ok());
+            });
     }
 }
+

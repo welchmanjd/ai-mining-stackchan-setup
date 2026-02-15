@@ -18,7 +18,7 @@ public partial class SerialService
         trace.AppendLine($"port: {portName}");
         trace.AppendLine($"baud: {BaudRate}");
         trace.AppendLine($"timeout_ms: {(int)timeout.TotalMilliseconds}");
-        trace.AppendLine($"command: {RedactCommand(command)}");
+        trace.AppendLine($"command: {SerialProtocolLogic.RedactCommand(command)}");
 
         SerialPort serial;
         SerialPort? portToClose = null;
@@ -195,10 +195,7 @@ public partial class SerialService
                 continue;
             }
 
-            if (!(line.StartsWith("@OK", StringComparison.OrdinalIgnoreCase) ||
-                  line.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase) ||
-                  line.StartsWith("@CFG", StringComparison.OrdinalIgnoreCase) ||
-                  line.StartsWith("@ERR", StringComparison.OrdinalIgnoreCase)))
+            if (!SerialProtocolLogic.IsProtocolResponseLine(line))
             {
                 trace.AppendLine($"read: {line}");
                 trace.AppendLine("read: ignored (unknown protocol)");

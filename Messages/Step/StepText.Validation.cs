@@ -1,8 +1,8 @@
-namespace AiStackchanSetup.Steps;
+namespace AiStackchanSetup.Messages.Step;
 
-internal static partial class StepMessages
+internal static partial class StepText
 {
-    public const string ComPortNotSelected = "COMポートが選択されていません";
+    public const string ComPortNotSelected = "COMポートが未選択です";
 
     public const string OpenAiApiKeyRequired = "OpenAI APIキーが未入力です";
     public const string AzureKeyRequired = "Azureキーが未入力です";
@@ -15,5 +15,5 @@ internal static partial class StepMessages
     public const string FirmwareNotFound = "ファームウェアが見つかりません";
     public const string FirmwarePublicBinOnly = "_public を含む .bin のみ対応しています";
     public const string FirmwareFormatInvalid = "ファームウェア形式が不正です";
-    public const string FlashBaudNotNumeric = "Baud が数値ではありません";
+    public const string FlashBaudNotNumeric = "Baud は数値で入力してください";
 }

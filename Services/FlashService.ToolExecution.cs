@@ -160,20 +160,7 @@ public partial class FlashService
             await File.WriteAllTextAsync(logPath, output.ToString(), token);
 
             var success = process.ExitCode == 0;
-            var combined = $"{stdoutTask.Result}\n{stderrTask.Result}";
-            var message = "OK";
-            if (combined.Contains("No serial data received.", StringComparison.OrdinalIgnoreCase))
-            {
-                message = "Failed to connect to ESP32: No serial data received.";
-            }
-            else if (!success && !string.IsNullOrWhiteSpace(stderrTask.Result))
-            {
-                message = stderrTask.Result.Trim();
-            }
-            else if (!success && !string.IsNullOrWhiteSpace(stdoutTask.Result))
-            {
-                message = stdoutTask.Result.Trim();
-            }
+            var message = FlashOutputLogic.ResolveEsptoolMessage(success, stdoutTask.Result, stderrTask.Result);
 
             if (!success)
             {

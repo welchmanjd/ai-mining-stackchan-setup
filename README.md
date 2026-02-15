@@ -1,4 +1,4 @@
-﻿# AIマイニングスタックチャン セットアップ
+# AIマイニングスタックチャン セットアップ
 
 M5Stack Core2 向けの AIマイニングスタックチャンに、ファームウェア書き込みと初期設定（Wi-Fi / APIキー等）を行う Windows 用セットアップアプリです。
 
@@ -45,7 +45,8 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 ログ出力先:
 
-- `%LOCALAPPDATA%\AiStackchanSetup\Logs`
+- 配布版 (`AiStackchanSetup.bat` 起動): `AiStackchanSetup.bat` と同じ階層の `log` フォルダ
+- 開発実行時など（上記を解決できない場合）: `%LOCALAPPDATA%\AiStackchanSetup\Logs`
 
 トラブル時は、アプリ内の「サポート用ログを作成」で ZIP を作成して共有してください。
 
@@ -57,7 +58,8 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 - `StepDefinitions.*.cs`
   - 各Stepの `Index / Title / Description / PrimaryActionText` を定義
-- `StepMessages.*.cs`
+- `Messages/Step/StepText.*.cs`
+- `Messages/Ui/UiText.cs`
   - バリデーション文言、進捗文言、失敗/ガイダンス文言を分類して管理
 - `*Step.cs`
   - 画面遷移単位のオーケストレーション（薄い制御）

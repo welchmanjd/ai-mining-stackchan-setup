@@ -11,22 +11,29 @@ public sealed class DucoStep : StepBase
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
-        var vm = context.ViewModel;
-        if (!vm.WifiEnabled)
-        {
-            return Task.FromResult(StepResult.Skipped());
-        }
+        return ExecuteStepAsync(
+            context,
+            token,
+            () =>
+            {
+                var vm = context.ViewModel;
+                if (!vm.WifiEnabled)
+                {
+                    return Task.FromResult(StepResult.Skipped());
+                }
 
-        if (!vm.MiningEnabled)
-        {
-            return Task.FromResult(StepResult.Ok());
-        }
+                if (!vm.MiningEnabled)
+                {
+                    return Task.FromResult(StepResult.Ok());
+                }
 
-        if (string.IsNullOrWhiteSpace(vm.DucoUser))
-        {
-            return Task.FromResult(StepResult.Fail(StepMessages.DuinoCoinUserRequired, canRetry: false));
-        }
+                if (string.IsNullOrWhiteSpace(vm.DucoUser))
+                {
+                    return Task.FromResult(StepResult.Fail(StepText.DuinoCoinUserRequired, canRetry: false));
+                }
 
-        return Task.FromResult(StepResult.Ok());
+                return Task.FromResult(StepResult.Ok());
+            });
     }
 }
+

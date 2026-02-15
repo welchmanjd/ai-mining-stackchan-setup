@@ -15,102 +15,103 @@ public sealed class FeatureToggleStep : StepBase
         var vm = context.ViewModel;
         if (vm.SelectedPort == null)
         {
-            return StepResult.Fail(StepMessages.ComPortNotSelected, canRetry: false);
+            return StepResult.Fail(StepText.ComPortNotSelected, canRetry: false);
         }
 
-        vm.IsBusy = true;
-        vm.StatusMessage = StepMessages.DeviceSettingsLoadInProgress;
-        vm.DeviceStatusSummary = StepMessages.DeviceSettingsLoading;
-        vm.DeviceInfoJson = "";
-        vm.LastProtocolResponse = "";
-
-        try
-        {
-            var hello = await context.RetryPolicy.ExecuteWithTimeoutAsync(
-                ct => context.SerialService.HelloAsync(vm.SelectedPort.PortName, ct),
-                context.Timeouts.Hello,
-                maxAttempts: 3,
-                baseDelay: TimeSpan.FromMilliseconds(400),
-                backoffFactor: 2,
-                token);
-            if (!hello.Success)
+        return await ExecuteBusyStepAsync(
+            context,
+            token,
+            async () =>
             {
-                return StepResult.Fail(hello.Message, guidance: StepMessages.UsbConnectionAndPortGuidance);
-            }
+                var hello = await context.RetryPolicy.ExecuteWithTimeoutAsync(
+                    ct => context.SerialService.HelloAsync(vm.SelectedPort.PortName, ct),
+                    context.Timeouts.Hello,
+                    maxAttempts: 3,
+                    baseDelay: TimeSpan.FromMilliseconds(400),
+                    backoffFactor: 2,
+                    token);
+                if (hello.IsFailure)
+                {
+                    return StepResult.Fail(hello.Message, guidance: StepText.UsbConnectionAndPortGuidance);
+                }
 
-            var ping = await context.RetryPolicy.ExecuteWithTimeoutAsync(
-                ct => context.SerialService.PingAsync(vm.SelectedPort.PortName, ct),
-                context.Timeouts.Hello,
-                maxAttempts: 3,
-                baseDelay: TimeSpan.FromMilliseconds(400),
-                backoffFactor: 2,
-                token);
-            if (!ping.Success)
+                var ping = await context.RetryPolicy.ExecuteWithTimeoutAsync(
+                    ct => context.SerialService.PingAsync(vm.SelectedPort.PortName, ct),
+                    context.Timeouts.Hello,
+                    maxAttempts: 3,
+                    baseDelay: TimeSpan.FromMilliseconds(400),
+                    backoffFactor: 2,
+                    token);
+                if (ping.IsFailure)
+                {
+                    return StepResult.Fail(ping.Message, guidance: StepText.UsbConnectionAndPortGuidance);
+                }
+
+                var info = await context.RetryPolicy.ExecuteWithTimeoutAsync(
+                    ct => context.SerialService.GetInfoAsync(vm.SelectedPort.PortName, ct),
+                    context.Timeouts.Hello,
+                    maxAttempts: 3,
+                    baseDelay: TimeSpan.FromMilliseconds(400),
+                    backoffFactor: 2,
+                    token);
+                if (info.IsFailure)
+                {
+                    return StepResult.Fail(info.Message, guidance: StepText.UsbConnectionAndPortGuidance);
+                }
+
+                vm.DeviceStatusSummary = info.Info != null ? info.Info.ToSummary() : StepText.DeviceSettingsNotAcquired;
+                vm.UpdateCurrentFirmwareInfo(info.Info);
+                vm.DeviceInfoJson = info.RawJson;
+                vm.LastProtocolResponse = context.SerialService.LastProtocolResponse;
+
+                var cfg = await context.RetryPolicy.ExecuteWithTimeoutAsync(
+                    ct => context.SerialService.GetConfigJsonAsync(vm.SelectedPort.PortName, ct),
+                    context.Timeouts.Hello,
+                    maxAttempts: 2,
+                    baseDelay: TimeSpan.FromMilliseconds(300),
+                    backoffFactor: 2,
+                    token);
+                if (!cfg.IsFailure && !string.IsNullOrWhiteSpace(cfg.Json))
+                {
+                    // Keep user's ON/OFF selection from this screen.
+                    var wifiEnabled = vm.WifiEnabled;
+                    var miningEnabled = vm.MiningEnabled;
+                    var aiEnabled = vm.AiEnabled;
+                    vm.ApplyConfigSnapshot(cfg.Json);
+                    vm.WifiEnabled = wifiEnabled;
+                    vm.MiningEnabled = miningEnabled;
+                    vm.AiEnabled = aiEnabled;
+                }
+
+                vm.StatusMessage = StepText.DeviceSettingsLoadCompleted;
+                return StepResult.Ok();
+            },
+            before: vmLocal =>
             {
-                return StepResult.Fail(ping.Message, guidance: StepMessages.UsbConnectionAndPortGuidance);
-            }
-
-            var info = await context.RetryPolicy.ExecuteWithTimeoutAsync(
-                ct => context.SerialService.GetInfoAsync(vm.SelectedPort.PortName, ct),
-                context.Timeouts.Hello,
-                maxAttempts: 3,
-                baseDelay: TimeSpan.FromMilliseconds(400),
-                backoffFactor: 2,
-                token);
-            if (!info.Success)
+                vmLocal.StatusMessage = StepText.DeviceSettingsLoadInProgress;
+                vmLocal.DeviceStatusSummary = StepText.DeviceSettingsLoading;
+                vmLocal.DeviceInfoJson = "";
+                vmLocal.LastProtocolResponse = "";
+            },
+            onCancelled: (vmLocal, _) =>
             {
-                return StepResult.Fail(info.Message, guidance: StepMessages.UsbConnectionAndPortGuidance);
-            }
-
-            vm.DeviceStatusSummary = info.Info != null ? info.Info.ToSummary() : StepMessages.DeviceSettingsNotAcquired;
-            vm.UpdateCurrentFirmwareInfo(info.Info);
-            vm.DeviceInfoJson = info.RawJson;
-            vm.LastProtocolResponse = context.SerialService.LastProtocolResponse;
-
-            var cfg = await context.RetryPolicy.ExecuteWithTimeoutAsync(
-                ct => context.SerialService.GetConfigJsonAsync(vm.SelectedPort.PortName, ct),
-                context.Timeouts.Hello,
-                maxAttempts: 2,
-                baseDelay: TimeSpan.FromMilliseconds(300),
-                backoffFactor: 2,
-                token);
-            if (cfg.Success && !string.IsNullOrWhiteSpace(cfg.Json))
+                vmLocal.StatusMessage = StepText.Cancelled;
+                return StepResult.Cancelled();
+            },
+            onTimeout: (vmLocal, ex) =>
             {
-                // Keep user's ON/OFF selection from this screen.
-                var wifiEnabled = vm.WifiEnabled;
-                var miningEnabled = vm.MiningEnabled;
-                var aiEnabled = vm.AiEnabled;
-                vm.ApplyConfigSnapshot(cfg.Json);
-                vm.WifiEnabled = wifiEnabled;
-                vm.MiningEnabled = miningEnabled;
-                vm.AiEnabled = aiEnabled;
-            }
-
-            vm.StatusMessage = StepMessages.DeviceSettingsLoadCompleted;
-            return StepResult.Ok();
-        }
-        catch (OperationCanceledException)
-        {
-            vm.StatusMessage = StepMessages.Cancelled;
-            return StepResult.Cancelled();
-        }
-        catch (TimeoutException ex)
-        {
-            vm.ErrorMessage = ex.Message;
-            vm.LastError = ex.Message;
-            vm.StatusMessage = StepMessages.Timeout;
-            return StepResult.Fail(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            vm.ErrorMessage = StepMessages.SettingsLoadFailed;
-            vm.LastError = ex.Message;
-            vm.StatusMessage = StepMessages.SettingsLoadFailed;
-            return StepResult.Fail(StepMessages.SettingsLoadFailed);
-        }
-        finally
-        {
-            vm.IsBusy = false;
-        }
+                vmLocal.ErrorMessage = ex.Message;
+                vmLocal.LastError = ex.Message;
+                vmLocal.StatusMessage = StepText.Timeout;
+                return StepResult.Fail(ex.Message);
+            },
+            onError: (vmLocal, ex) =>
+            {
+                vmLocal.ErrorMessage = StepText.SettingsLoadFailed;
+                vmLocal.LastError = ex.Message;
+                vmLocal.StatusMessage = StepText.SettingsLoadFailed;
+                return StepResult.Fail(StepText.SettingsLoadFailed);
+            });
     }
 }
+

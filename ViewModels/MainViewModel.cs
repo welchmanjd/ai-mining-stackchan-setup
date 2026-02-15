@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -123,19 +123,7 @@ public partial class MainViewModel : BindableBase
         _deviceLogPath = LogService.GetLatestDeviceLogPath() ?? "";
 
         _stepContext = new StepContext(this, _serialService, _flashService, _apiTestService, _supportPackService, _retryPolicy, _timeouts);
-        _stepController = new StepController(this, _stepContext, new IStep[]
-        {
-            new DetectPortsStep(),
-            new FlashStep(),
-            new FeatureToggleStep(),
-            new WifiStep(),
-            new DucoStep(),
-            new AzureStep(),
-            new OpenAiKeyStep(),
-            new AdditionalSettingsStep(),
-            new RuntimeSettingsStep(),
-            new CompleteStep()
-        });
+        _stepController = new StepController(this, _stepContext, StepCatalog.CreateDefaultSteps());
         _totalSteps = _stepController.TotalSteps;
 
         PrimaryCommand = new AsyncRelayCommand(PrimaryAsync, () => !IsBusy);

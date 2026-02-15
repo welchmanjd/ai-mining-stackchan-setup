@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using AiStackchanSetup.ViewModels;
@@ -20,84 +20,85 @@ public sealed class RuntimeSettingsStep : StepBase
             return validationError;
         }
 
-        vm.IsBusy = true;
-        vm.StatusMessage = StepMessages.ApiPrecheckInProgress;
-        vm.ErrorMessage = "";
-
-        try
-        {
-            var workflow = new RuntimeSettingsWorkflow(context, vm, token);
-            var precheck = await workflow.RunApiPrecheckAsync();
-            if (!precheck.Succeeded)
+        return await ExecuteBusyStepAsync(
+            context,
+            token,
+            async () =>
             {
-                vm.StatusMessage = StepMessages.ApiKeyValidationFailed;
-                return StepResult.Fail(precheck.Detail, canRetry: true);
-            }
+                var workflow = new RuntimeSettingsWorkflow(context, vm, token);
+                var precheck = await workflow.RunApiPrecheckAsync();
+                if (!precheck.Succeeded)
+                {
+                    vm.StatusMessage = StepText.ApiKeyValidationFailed;
+                    return StepResult.Fail(precheck.Detail, canRetry: true);
+                }
 
-            var config = vm.BuildDeviceConfig();
-            Serilog.Log.Information(
-                "Config send flags wifi_enabled={Wifi} mining_enabled={Mining} ai_enabled={Ai}",
-                config.WifiEnabled,
-                config.MiningEnabled,
-                config.AiEnabled);
+                var config = vm.BuildDeviceConfig();
+                Serilog.Log.Information(
+                    "Config send flags wifi_enabled={Wifi} mining_enabled={Mining} ai_enabled={Ai}",
+                    config.WifiEnabled,
+                    config.MiningEnabled,
+                    config.AiEnabled);
 
-            var sendAndApply = await workflow.SendAndApplyConfigAsync(config);
-            if (!sendAndApply.Succeeded)
+                var sendAndApply = await workflow.SendAndApplyConfigAsync(config);
+                if (!sendAndApply.Succeeded)
+                {
+                    return StepResult.Fail(sendAndApply.Detail);
+                }
+
+                var verify = await workflow.VerifyPersistedFlagsWithRetryAsync(config);
+                if (!verify.Succeeded)
+                {
+                    return StepResult.Fail(verify.Detail, canRetry: true);
+                }
+
+                await workflow.CapturePostRebootLogIfEnabledAsync();
+                return StepResult.Ok();
+            },
+            before: vmLocal =>
             {
-                return StepResult.Fail(sendAndApply.Detail);
-            }
-
-            var verify = await workflow.VerifyPersistedFlagsWithRetryAsync(config);
-            if (!verify.Succeeded)
+                vmLocal.StatusMessage = StepText.ApiPrecheckInProgress;
+                vmLocal.ErrorMessage = "";
+            },
+            onCancelled: (vmLocal, _) =>
             {
-                return StepResult.Fail(verify.Detail, canRetry: true);
-            }
-
-            await workflow.CapturePostRebootLogIfEnabledAsync();
-            return StepResult.Ok();
-        }
-        catch (OperationCanceledException)
-        {
-            vm.StatusMessage = StepMessages.Cancelled;
-            return StepResult.Cancelled();
-        }
-        catch (TimeoutException ex)
-        {
-            vm.ErrorMessage = ex.Message;
-            vm.LastError = ex.Message;
-            vm.StatusMessage = StepMessages.Timeout;
-            return StepResult.Fail(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            vm.ErrorMessage = StepMessages.ConfigApplyFailed;
-            vm.LastError = ex.Message;
-            vm.StatusMessage = StepMessages.ConfigApplyFailed;
-            return StepResult.Fail(StepMessages.ConfigApplyFailed);
-        }
-        finally
-        {
-            vm.IsBusy = false;
-        }
+                vmLocal.StatusMessage = StepText.Cancelled;
+                return StepResult.Cancelled();
+            },
+            onTimeout: (vmLocal, ex) =>
+            {
+                vmLocal.ErrorMessage = ex.Message;
+                vmLocal.LastError = ex.Message;
+                vmLocal.StatusMessage = StepText.Timeout;
+                return StepResult.Fail(ex.Message);
+            },
+            onError: (vmLocal, ex) =>
+            {
+                vmLocal.ErrorMessage = StepText.ConfigApplyFailed;
+                vmLocal.LastError = ex.Message;
+                vmLocal.StatusMessage = StepText.ConfigApplyFailed;
+                return StepResult.Fail(StepText.ConfigApplyFailed);
+            });
     }
 
     private static StepResult? ValidateRequiredInputs(MainViewModel vm)
     {
         if (vm.SelectedPort == null)
         {
-            return StepResult.Fail(StepMessages.ComPortNotSelected, canRetry: false);
+            return StepResult.Fail(StepText.ComPortNotSelected, canRetry: false);
         }
 
         if (vm.WifiEnabled && vm.AiEnabled && string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey) && !(vm.OpenAiKeyStored && vm.ReuseOpenAiKey))
         {
-            return StepResult.Fail(StepMessages.OpenAiApiKeyRequired, canRetry: false);
+            return StepResult.Fail(StepText.OpenAiApiKeyRequired, canRetry: false);
         }
 
         if (vm.WifiEnabled && (vm.MiningEnabled || vm.AiEnabled) && string.IsNullOrWhiteSpace(vm.AzureKey) && !(vm.AzureKeyStored && vm.ReuseAzureKey))
         {
-            return StepResult.Fail(StepMessages.AzureKeyRequired, canRetry: false);
+            return StepResult.Fail(StepText.AzureKeyRequired, canRetry: false);
         }
 
         return null;
     }
 }
+

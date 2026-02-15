@@ -65,95 +65,95 @@ public partial class SerialService
 
         {
             var result = await SendSetWithCompatAsync("wifi_enabled", config.WifiEnabled ? "1" : "0", allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
         {
             var result = await SendSetAnyAsync(
                 new[] { "mining_enabled", "duco_enabled", "mining_on" },
                 config.MiningEnabled ? "1" : "0");
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
         {
             var result = await SendSetWithCompatAsync("ai_enabled", config.AiEnabled ? "1" : "0", allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("wifi_ssid", config.WifiSsid, allowUnknownKey: false);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.WifiPassword))
         {
             var result = await SendSetWithCompatAsync("wifi_pass", config.WifiPassword, allowUnknownKey: false);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         var ducoUserToSend = config.DucoUser;
         var ducoKeyToSend = config.DucoMinerKey;
         {
             var result = await SendSetWithCompatAsync("duco_user", ducoUserToSend, allowUnknownKey: false);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
         {
             var result = await SendSetWithCompatAsync("duco_miner_key", ducoKeyToSend, allowUnknownKey: false);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("az_speech_region", config.AzureRegion, allowUnknownKey: false);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.AzureKey))
         {
             var result = await SendSetWithCompatAsync("az_speech_key", config.AzureKey, allowUnknownKey: false);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("az_custom_subdomain", config.AzureCustomSubdomain, allowUnknownKey: false);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         if (!string.IsNullOrWhiteSpace(config.OpenAiKey))
         {
             var result = await SendSetWithCompatAsync("openai_key", config.OpenAiKey, allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("openai_model", config.OpenAiModel, allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("openai_instructions", config.OpenAiInstructions, allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("display_sleep_s", config.DisplaySleepSeconds.ToString(CultureInfo.InvariantCulture), allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
         {
             var result = await SendSetWithCompatAsync("spk_volume", config.SpeakerVolume.ToString(CultureInfo.InvariantCulture), allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("share_accepted_text", config.ShareAcceptedText, allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("attention_text", config.AttentionText, allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         {
             var result = await SendSetWithCompatAsync("hello_text", config.HelloText, allowUnknownKey: true);
-            if (!result.Success) return result;
+            if (result.IsFailure) return result;
         }
 
         return new ConfigResult

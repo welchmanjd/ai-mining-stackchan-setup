@@ -66,9 +66,9 @@ public partial class SerialService
         return GetInfoAsync(portName, CancellationToken.None);
     }
 
-    public async Task<DeviceInfoResult> GetInfoAsync(string portName, CancellationToken token)
+    public Task<DeviceInfoResult> GetInfoAsync(string portName, CancellationToken token)
     {
-        return await GetInfoAsync(portName, TimeSpan.FromSeconds(8), token);
+        return GetInfoAsync(portName, TimeSpan.FromSeconds(8), token);
     }
 
     public async Task<DeviceInfoResult> GetInfoAsync(string portName, TimeSpan timeout, CancellationToken token)
@@ -92,7 +92,7 @@ public partial class SerialService
 
                 return new DeviceInfoResult { Success = true, Message = "OK", RawJson = json, Info = info };
             }
-            catch (SerialCommandException ex) when (attempt == 0 && IsTransientInfoSyncNoise(ex.Reason))
+            catch (SerialCommandException ex) when (attempt == 0 && SerialProtocolLogic.IsTransientInfoSyncNoise(ex.Reason))
             {
                 await Task.Delay(180, token);
                 continue;
@@ -110,31 +110,31 @@ public partial class SerialService
         return new DeviceInfoResult { Success = false, Message = "GET INFO failed after retry" };
     }
 
-    public Task<(bool Success, string Message, string Json)> GetConfigJsonAsync(string portName)
+    public Task<ConfigJsonResult> GetConfigJsonAsync(string portName)
     {
         return GetConfigJsonAsync(portName, CancellationToken.None);
     }
 
-    public async Task<(bool Success, string Message, string Json)> GetConfigJsonAsync(string portName, CancellationToken token)
+    public async Task<ConfigJsonResult> GetConfigJsonAsync(string portName, CancellationToken token)
     {
         try
         {
             var response = await SendCommandAsync(portName, "GET CFG", TimeSpan.FromSeconds(8), token);
             if (!response.StartsWith("@CFG", StringComparison.OrdinalIgnoreCase))
             {
-                return (false, "応答が想定外です", string.Empty);
+                return new ConfigJsonResult { Success = false, Message = "応答が想定外です" };
             }
 
             var json = response["@CFG".Length..].Trim();
-            return (true, "OK", json);
+            return new ConfigJsonResult { Success = true, Message = "OK", Json = json };
         }
         catch (SerialCommandException ex)
         {
-            return (false, ex.Reason, string.Empty);
+            return new ConfigJsonResult { Success = false, Message = ex.Reason };
         }
         catch (TimeoutException ex)
         {
-            return (false, ex.Message, string.Empty);
+            return new ConfigJsonResult { Success = false, Message = ex.Message };
         }
     }
 }

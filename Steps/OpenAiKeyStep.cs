@@ -11,19 +11,26 @@ public sealed class OpenAiKeyStep : StepBase
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
-        var vm = context.ViewModel;
-        if (!vm.WifiEnabled || !vm.AiEnabled)
-        {
-            return Task.FromResult(StepResult.Skipped());
-        }
+        return ExecuteStepAsync(
+            context,
+            token,
+            () =>
+            {
+                var vm = context.ViewModel;
+                if (!vm.WifiEnabled || !vm.AiEnabled)
+                {
+                    return Task.FromResult(StepResult.Skipped());
+                }
 
-        var hasKey = !string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey);
-        var canReuseKey = vm.OpenAiKeyStored && vm.ReuseOpenAiKey;
-        if (!hasKey && !canReuseKey)
-        {
-            return Task.FromResult(StepResult.Fail(StepMessages.OpenAiApiKeyRequired, canRetry: false));
-        }
+                var hasKey = !string.IsNullOrWhiteSpace(vm.ConfigOpenAiKey);
+                var canReuseKey = vm.OpenAiKeyStored && vm.ReuseOpenAiKey;
+                if (!hasKey && !canReuseKey)
+                {
+                    return Task.FromResult(StepResult.Fail(StepText.OpenAiApiKeyRequired, canRetry: false));
+                }
 
-        return Task.FromResult(StepResult.Ok());
+                return Task.FromResult(StepResult.Ok());
+            });
     }
 }
+

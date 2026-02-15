@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AiStackchanSetup.Models;
@@ -39,13 +38,13 @@ public partial class FlashService
         // Try esptool with safer connection profiles first.
         if (hasEsptool)
         {
-            var baudCandidates = new[] { baud, 460800, 115200 }.Distinct().ToArray();
+            var baudCandidates = FlashCommandPlan.BuildBaudCandidates(baud);
 
             if (erase)
             {
                 foreach (var eraseBaud in baudCandidates)
                 {
-                    var eraseArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud {eraseBaud} erase_flash";
+                    var eraseArgs = FlashCommandPlan.BuildEsptoolEraseArgs(portName, eraseBaud);
                     var eraseResult = await RunEsptoolAsync(eraseArgs, portName, eraseBaud, erase, firmwarePath, token);
                     lastEsptoolResult = eraseResult;
                     if (eraseResult.Success)
@@ -59,7 +58,7 @@ public partial class FlashService
             {
                 foreach (var writeBaud in baudCandidates)
                 {
-                    var writeArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud {writeBaud} write_flash -z 0x0 \"{firmwarePath}\"";
+                    var writeArgs = FlashCommandPlan.BuildEsptoolWriteArgs(portName, writeBaud, firmwarePath, noStub: false);
                     var writeResult = await RunEsptoolAsync(writeArgs, portName, writeBaud, erase, firmwarePath, token);
                     lastEsptoolResult = writeResult;
                     if (writeResult.Success)
@@ -69,7 +68,7 @@ public partial class FlashService
                     }
 
                     // Some adapters connect more reliably with --no-stub.
-                    var noStubArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud {writeBaud} --no-stub write_flash -z 0x0 \"{firmwarePath}\"";
+                    var noStubArgs = FlashCommandPlan.BuildEsptoolWriteArgs(portName, writeBaud, firmwarePath, noStub: true);
                     writeResult = await RunEsptoolAsync(noStubArgs, portName, writeBaud, erase, firmwarePath, token);
                     lastEsptoolResult = writeResult;
                     if (writeResult.Success)
@@ -89,15 +88,16 @@ public partial class FlashService
 
             if (erase)
             {
-                var eraseArgs = $"erase-flash --non-interactive -c esp32 -p {portName}";
+                var eraseArgs = FlashCommandPlan.BuildEspflashEraseArgs(portName);
                 var eraseResult = await RunToolAsync(espFlashPath, eraseArgs, "espflash", portName, baud, erase, firmwarePath, token);
-                if (!eraseResult.Success)
+                if (eraseResult.IsFailure)
                 {
                     if (hasEsptool)
                     {
                         Log.Warning("espflash erase failed. Falling back to esptool.py erase_flash");
-                        var eraseFallback = await RunEsptoolAsync($"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud 115200 erase_flash", portName, 115200, erase, firmwarePath, token);
-                        if (!eraseFallback.Success)
+                        var eraseFallbackArgs = FlashCommandPlan.BuildEsptoolEraseArgs(portName, 115200);
+                        var eraseFallback = await RunEsptoolAsync(eraseFallbackArgs, portName, 115200, erase, firmwarePath, token);
+                        if (eraseFallback.IsFailure)
                         {
                             eraseFallback.Message = "erase_flash 失敗 (espflash + esptool)";
                             return eraseFallback;
@@ -126,7 +126,7 @@ public partial class FlashService
             
             if (!espflashUnavailableForThisRun)
             {
-                var flashArgs = $"write-bin --non-interactive -c esp32 -p {portName} -B {baud} 0x0 \"{firmwarePath}\"";
+                var flashArgs = FlashCommandPlan.BuildEspflashWriteArgs(portName, baud, firmwarePath);
                 var result = await RunToolAsync(espFlashPath, flashArgs, "espflash", portName, baud, erase, firmwarePath, token);
                 if (result.Success)
                 {
@@ -137,7 +137,7 @@ public partial class FlashService
                 if (hasEsptool)
                 {
                     Log.Warning("espflash failed. Falling back to esptool.py");
-                    var fallbackArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud 115200 --no-stub write_flash -z 0x0 \"{firmwarePath}\"";
+                    var fallbackArgs = FlashCommandPlan.BuildEsptoolWriteArgs(portName, 115200, firmwarePath, noStub: true);
                     var fallback = await RunEsptoolAsync(fallbackArgs, portName, 115200, erase, firmwarePath, token);
                     fallback.Message = fallback.Success ? "書き込み成功 (esptool fallback)" : "書き込み失敗 (espflash + esptool)";
                     return fallback;
@@ -150,7 +150,7 @@ public partial class FlashService
             if (hasEsptool)
             {
                 Log.Warning("Skipping espflash write due to prior espflash failure. Using esptool.py directly.");
-                var fallbackArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud 115200 --no-stub write_flash -z 0x0 \"{firmwarePath}\"";
+                var fallbackArgs = FlashCommandPlan.BuildEsptoolWriteArgs(portName, 115200, firmwarePath, noStub: true);
                 var fallback = await RunEsptoolAsync(fallbackArgs, portName, 115200, erase, firmwarePath, token);
                 fallback.Message = fallback.Success ? "書き込み成功 (esptool direct)" : "書き込み失敗 (esptool direct)";
                 return fallback;
@@ -168,7 +168,7 @@ public partial class FlashService
 
         if (lastEsptoolResult != null)
         {
-            if (lastEsptoolResult.Message.Contains("No serial data received", StringComparison.OrdinalIgnoreCase))
+            if (FlashOutputLogic.IsLikelyConnectFailure(lastEsptoolResult.Message))
             {
                 lastEsptoolResult.Message = "ESP32に接続できません。USBケーブル(データ通信対応)を確認し、M5Stackを再起動して再試行してください。";
             }

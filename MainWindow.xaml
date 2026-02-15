@@ -1,4 +1,4 @@
-﻿<Window x:Class="AiStackchanSetup.MainWindow"
+<Window x:Class="AiStackchanSetup.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="AIマイニングスタックチャン セットアップ" Height="640" Width="860"

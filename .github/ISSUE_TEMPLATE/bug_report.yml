@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a defect
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+      placeholder: Example: Flash step times out on COM3
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List exact steps to reproduce.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Example: Firmware flash completes successfully
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      placeholder: Example: Fails after COM port detection
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      placeholder: Example: v1.2.3
+
+  - type: input
+    id: os_version
+    attributes:
+      label: OS
+      placeholder: Example: Windows 11 23H2
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Attach support zip or relevant log excerpts if available.

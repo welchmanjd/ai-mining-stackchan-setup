@@ -7,15 +7,41 @@ namespace AiStackchanSetup.Services;
 
 public static class LogService
 {
-    public static readonly string LogDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AiStackchanSetup",
-        "Logs");
+    public static readonly string LogDirectory = ResolveLogDirectory();
 
     public static readonly string AppLogPath = Path.Combine(LogDirectory, "app.log");
     public static readonly string FlashLogPath = Path.Combine(LogDirectory, "flash_esptool.log");
     public static readonly string DeviceLogPath = Path.Combine(LogDirectory, "device_log.txt");
     public static readonly string SerialLogPath = Path.Combine(LogDirectory, "serial_comm.log");
+
+    private static string ResolveLogDirectory()
+    {
+        var configured = Environment.GetEnvironmentVariable("AISTACKCHAN_LOG_DIR");
+        if (!string.IsNullOrWhiteSpace(configured))
+        {
+            return Path.GetFullPath(configured);
+        }
+
+        try
+        {
+            // Packaged distribution runs from "<dist>/app", so parent becomes "<dist>".
+            var baseDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var distRoot = Directory.GetParent(baseDir)?.FullName;
+            if (!string.IsNullOrWhiteSpace(distRoot))
+            {
+                return Path.Combine(distRoot, "log");
+            }
+        }
+        catch
+        {
+            // fallback below
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "AiStackchanSetup",
+            "Logs");
+    }
 
     public static void Initialize()
     {

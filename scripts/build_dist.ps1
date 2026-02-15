@@ -122,6 +122,10 @@ setlocal
 
 set ROOT=%~dp0
 set APP=%ROOT%app
+set LOGDIR=%ROOT%log
+
+if not exist "%LOGDIR%" mkdir "%LOGDIR%"
+set AISTACKCHAN_LOG_DIR=%LOGDIR%
 
 if not exist "%APP%\AiStackchanSetup.exe" (
   echo [ERROR] AiStackchanSetup.exe not found: "%APP%"

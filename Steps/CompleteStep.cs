@@ -1,4 +1,4 @@
-﻿using System.Threading;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -12,7 +12,13 @@ public sealed class CompleteStep : StepBase
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
-        Application.Current.Shutdown();
-        return Task.FromResult(StepResult.Ok());
+        return ExecuteStepAsync(
+            context,
+            token,
+            () =>
+            {
+                Application.Current.Shutdown();
+                return Task.FromResult(StepResult.Ok());
+            });
     }
 }
