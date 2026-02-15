@@ -1,181 +1,17 @@
-﻿using System;
-using System.Diagnostics;
-using System.IO;
-using System.Linq;
-using System.Reflection;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Media;
-using AiStackchanSetup;
 using AiStackchanSetup.Infrastructure;
 using AiStackchanSetup.Models;
 using AiStackchanSetup.Services;
-using AiStackchanSetup.Steps;
-using Microsoft.Win32;
 using Serilog;
 
 namespace AiStackchanSetup.ViewModels;
 
 public partial class MainViewModel
 {
-    private async Task PrimaryAsync()
-    {
-        ErrorMessage = "";
-        _stepCts?.Dispose();
-        _stepCts = new CancellationTokenSource();
-        RaisePropertyChanged(nameof(CanCancel));
-
-        StepResult result;
-        try
-        {
-            result = await _stepController.ExecuteCurrentAsync(_stepCts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            Log.Information("Step cancelled by user");
-            result = StepResult.Cancelled();
-        }
-        finally
-        {
-            _stepCts.Dispose();
-            _stepCts = null;
-            RaisePropertyChanged(nameof(CanCancel));
-        }
-
-        if (result.Status == StepStatus.Success || result.Status == StepStatus.Skipped)
-        {
-            _stepController.MoveNext();
-            AutoSkipOptionalSteps();
-            _stepController.SyncStepMetadata();
-            if (_abortToCompleteRequested)
-            {
-                await ExecuteAbortToCompleteAsync();
-            }
-            return;
-        }
-
-        if (result.Status == StepStatus.Cancelled)
-        {
-            StatusMessage = UiText.Cancelled;
-            if (_abortToCompleteRequested)
-            {
-                await ExecuteAbortToCompleteAsync();
-            }
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
-        {
-            ErrorMessage = result.ErrorMessage;
-        }
-
-        if (result.CanRetry)
-        {
-            PrimaryButtonText = UiText.Retry;
-        }
-
-        if (_abortToCompleteRequested)
-        {
-            await ExecuteAbortToCompleteAsync();
-        }
-    }
-
-    private void AutoSkipOptionalSteps()
-    {
-        while (true)
-        {
-            if (Step == 5 && !WifiEnabled)
-            {
-                Step = 6;
-                continue;
-            }
-
-            if (Step == 6 && !(WifiEnabled && (MiningEnabled || AiEnabled)))
-            {
-                Step = 7;
-                continue;
-            }
-
-            if (Step == 7 && (!WifiEnabled || !AiEnabled))
-            {
-                Step = 8;
-                continue;
-            }
-
-            break;
-        }
-    }
-    private void CancelCurrent()
-    {
-        _stepCts?.Cancel();
-    }
-
-    public void PrepareForShutdown()
-    {
-        try
-        {
-            CancelCurrent();
-            _serialService.Close();
-            _flashService.KillActiveProcesses();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "PrepareForShutdown failed");
-        }
-    }
-
-    private void RequestShutdown()
-    {
-        PrepareForShutdown();
-        Application.Current.Shutdown();
-    }
-
-    private async Task AbortToCompleteAsync()
-    {
-        _abortToCompleteRequested = true;
-        if (IsBusy)
-        {
-            CancelCurrent();
-            return;
-        }
-
-        await ExecuteAbortToCompleteAsync();
-    }
-
-    private Task ExecuteAbortToCompleteAsync()
-    {
-        _abortToCompleteRequested = false;
-        Step = 1;
-        _stepController.SyncStepMetadata();
-        StatusMessage = UiText.AbortedAndReturnedToStep1;
-        ErrorMessage = string.Empty;
-        return Task.CompletedTask;
-    }
-
-    private void GoBack()
-    {
-        _stepController.MovePrevious();
-        _stepController.SyncStepMetadata();
-        BackCommand.RaiseCanExecuteChanged();
-        SkipCommand.RaiseCanExecuteChanged();
-    }
-
-    private void SkipStep()
-    {
-        _stepController.Skip();
-        _stepController.SyncStepMetadata();
-        BackCommand.RaiseCanExecuteChanged();
-        SkipCommand.RaiseCanExecuteChanged();
-    }
-
-    private void UpdatePrimaryButtonTextForCurrentStep()
-    {
-        if (Step == 2)
-        {
-            PrimaryButtonText = FlashModeSkip ? UiText.FlashSkipWrite : UiText.FlashWrite;
-        }
-    }
+    // Responsibility: API key checks, runtime validation, and result visuals.
 
     private async Task RunTestsAsync()
     {
@@ -265,7 +101,7 @@ public partial class MainViewModel
                 SetAzureSummaryVisual(true);
             }
 
-            // Stub: 端末側TEST_RUN未実装の場合はSkippedとして扱う
+            // Stub: treat as skipped when TEST_RUN is not implemented on the device side.
             var deviceResult = await _retryPolicy.ExecuteWithTimeoutAsync(
                 ct => _serialService.RunTestAsync(SelectedPort.PortName, ct),
                 TimeSpan.FromSeconds(30),
@@ -512,52 +348,6 @@ public partial class MainViewModel
         }
     }
 
-    private async Task DumpDeviceLogAsync()
-    {
-        if (SelectedPort == null)
-        {
-            ErrorMessage = StepText.ComPortNotSelected;
-            return;
-        }
-
-        ErrorMessage = "";
-        IsBusy = true;
-        StatusMessage = UiText.DeviceLogFetching;
-
-        try
-        {
-            var deviceLog = await _serialService.DumpLogAsync(SelectedPort.PortName);
-            if (string.IsNullOrWhiteSpace(deviceLog))
-            {
-                ErrorMessage = UiText.DeviceLogEmpty;
-                return;
-            }
-
-            var config = BuildDeviceConfig();
-            var sanitized = SensitiveDataRedactor.Redact(deviceLog, config);
-            var path = LogService.CreateDeviceLogPath();
-            await File.WriteAllTextAsync(path, sanitized);
-            DeviceLogPath = path;
-            StatusMessage = UiText.DeviceLogSaved(path);
-        }
-        catch (SerialCommandException ex)
-        {
-            Log.Warning(ex, "Device log dump not supported");
-            ErrorMessage = UiText.DeviceLogUnsupported;
-            _lastError = ex.Message;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Device log dump failed");
-            ErrorMessage = UiText.DeviceLogFetchFailed;
-            _lastError = ex.Message;
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
     private void ResetAzureTestState()
     {
         _azureTestedKey = "";
@@ -602,115 +392,4 @@ public partial class MainViewModel
             : new SolidColorBrush(Color.FromRgb(0xFE, 0xE2, 0xE2));
     }
 
-    private void BrowseFirmware()
-    {
-        var dialog = new OpenFileDialog
-        {
-            Filter = UiText.BinFileDialogFilter
-        };
-
-        if (dialog.ShowDialog() == true)
-        {
-            FirmwarePath = dialog.FileName;
-        }
-    }
-
-    private void OpenLogFolder()
-    {
-        try
-        {
-            Directory.CreateDirectory(LogService.LogDirectory);
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = LogService.LogDirectory,
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Open log folder failed");
-        }
-    }
-
-    private void OpenFlashLog()
-    {
-        try
-        {
-            Directory.CreateDirectory(LogService.LogDirectory);
-            if (File.Exists(LogService.FlashLogPath))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = LogService.FlashLogPath,
-                    UseShellExecute = true
-                });
-            }
-            else
-            {
-                OpenLogFolder();
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Open flash log failed");
-        }
-    }
-
-
-    private async Task CreateSupportPackAsync()
-    {
-        try
-        {
-            var config = BuildDeviceConfig();
-
-            var summary = new SupportSummary
-            {
-                AppVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown",
-                DotNetVersion = Environment.Version.ToString(),
-                OsVersion = Environment.OSVersion.ToString(),
-                AppBaseDirectory = AppContext.BaseDirectory,
-                FirmwarePath = FirmwarePath,
-                FirmwareInfo = FirmwareInfoText,
-                DetectedPorts = string.Join(",", Ports.Select(p => p.PortName)),
-                SelectedPort = SelectedPort?.PortName ?? "",
-                FlashResult = _lastFlashResult,
-                ApiTest = _lastApiResult,
-                DeviceTest = _lastDeviceResult,
-                LastError = _lastError,
-                DeviceInfoJson = string.IsNullOrWhiteSpace(DeviceInfoJson) ? _serialService.LastInfoJson : DeviceInfoJson,
-                LastProtocolResponse = string.IsNullOrWhiteSpace(LastProtocolResponse) ? _serialService.LastProtocolResponse : LastProtocolResponse,
-                Config = config.ToMasked()
-            };
-
-            string deviceLog;
-            try
-            {
-                deviceLog = SelectedPort != null
-                    ? await _serialService.DumpLogAsync(SelectedPort.PortName)
-                    : string.Empty;
-            }
-            catch (SerialCommandException ex)
-            {
-                Log.Warning(ex, "Device log dump not supported");
-                deviceLog = string.Empty;
-            }
-            if (!string.IsNullOrWhiteSpace(deviceLog))
-            {
-                var sanitized = SensitiveDataRedactor.Redact(deviceLog, config);
-                var path = LogService.CreateDeviceLogPath();
-                await File.WriteAllTextAsync(path, sanitized);
-                DeviceLogPath = path;
-            }
-
-            var zipPath = await _supportPackService.CreateSupportPackAsync(summary, config);
-            StatusMessage = UiText.SupportPackCreated(zipPath);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Support pack failed");
-            ErrorMessage = UiText.SupportPackCreationFailed;
-        }
-    }
-
 }
-

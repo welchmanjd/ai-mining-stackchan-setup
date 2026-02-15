@@ -6,6 +6,7 @@ namespace AiStackchanSetup.ViewModels;
 
 public partial class MainViewModel
 {
+    // Responsibility: map between UI inputs and device config/json snapshots.
     public DeviceConfig BuildDeviceConfig()
     {
         var displaySleepSeconds = 60;
