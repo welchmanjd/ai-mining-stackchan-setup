@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using AiStackchanSetup.Infrastructure;
 using AiStackchanSetup.Models;
@@ -10,7 +11,31 @@ public partial class MainViewModel : BindableBase
 {
     // Responsibility: bootstrap commands/services and initialize the step workflow state.
     public MainViewModel()
+        : this(
+            new SerialService(),
+            new FlashService(),
+            new ApiTestService(),
+            new SupportPackService(),
+            new RetryPolicy(),
+            new StepTimeouts())
     {
+    }
+
+    public MainViewModel(
+        ISerialService serialService,
+        IFlashService flashService,
+        IApiTestService apiTestService,
+        ISupportPackService supportPackService,
+        RetryPolicy retryPolicy,
+        StepTimeouts timeouts)
+    {
+        _serialService = serialService ?? throw new ArgumentNullException(nameof(serialService));
+        _flashService = flashService ?? throw new ArgumentNullException(nameof(flashService));
+        _apiTestService = apiTestService ?? throw new ArgumentNullException(nameof(apiTestService));
+        _supportPackService = supportPackService ?? throw new ArgumentNullException(nameof(supportPackService));
+        _retryPolicy = retryPolicy ?? throw new ArgumentNullException(nameof(retryPolicy));
+        _timeouts = timeouts ?? throw new ArgumentNullException(nameof(timeouts));
+
         Ports = new ObservableCollection<SerialPortInfo>();
         _deviceLogPath = LogService.GetLatestDeviceLogPath() ?? "";
 
@@ -34,7 +59,7 @@ public partial class MainViewModel : BindableBase
         CreateSupportPackCommand = new AsyncRelayCommand(CreateSupportPackAsync);
 
         _stepController.SyncStepMetadata();
-        ConfigOpenAiModel = _configOpenAiModel;
+        ConfigOpenAiModel = _aiState.ConfigOpenAiModel;
         FirmwareInfoText = BuildFirmwareInfoText(FirmwarePath);
         RefreshFirmwareComparisonMessage();
     }

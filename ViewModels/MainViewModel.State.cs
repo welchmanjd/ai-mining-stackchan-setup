@@ -132,10 +132,10 @@ public partial class MainViewModel
 
     public string FirmwarePath
     {
-        get => _firmwarePath;
+        get => _flashState.FirmwarePath;
         set
         {
-            if (SetProperty(ref _firmwarePath, value))
+            if (SetProperty(ref _flashState.FirmwarePath, value))
             {
                 FirmwareInfoText = BuildFirmwareInfoText(value);
                 RefreshFirmwareComparisonMessage();
@@ -145,40 +145,40 @@ public partial class MainViewModel
 
     public string FirmwareInfoText
     {
-        get => _firmwareInfoText;
-        set => SetProperty(ref _firmwareInfoText, value);
+        get => _flashState.FirmwareInfoText;
+        set => SetProperty(ref _flashState.FirmwareInfoText, value);
     }
 
     public string CurrentFirmwareInfoText
     {
-        get => _currentFirmwareInfoText;
-        set => SetProperty(ref _currentFirmwareInfoText, value);
+        get => _flashState.CurrentFirmwareInfoText;
+        set => SetProperty(ref _flashState.CurrentFirmwareInfoText, value);
     }
 
     public string FirmwareCompareMessage
     {
-        get => _firmwareCompareMessage;
-        set => SetProperty(ref _firmwareCompareMessage, value);
+        get => _flashState.FirmwareCompareMessage;
+        set => SetProperty(ref _flashState.FirmwareCompareMessage, value);
     }
 
     public string FlashBaud
     {
-        get => _flashBaudText;
-        set => SetProperty(ref _flashBaudText, value);
+        get => _flashState.FlashBaudText;
+        set => SetProperty(ref _flashState.FlashBaudText, value);
     }
 
     public bool FlashErase
     {
-        get => _flashErase;
-        set => SetProperty(ref _flashErase, value);
+        get => _flashState.FlashErase;
+        set => SetProperty(ref _flashState.FlashErase, value);
     }
 
     public int FlashMode
     {
-        get => _flashMode;
+        get => _flashState.FlashMode;
         set
         {
-            if (SetProperty(ref _flashMode, value))
+            if (SetProperty(ref _flashState.FlashMode, value))
             {
                 RaisePropertyChanged(nameof(FlashModeOverwrite));
                 RaisePropertyChanged(nameof(FlashModeErase));
@@ -226,8 +226,8 @@ public partial class MainViewModel
 
     public string FlashStatus
     {
-        get => _flashStatus;
-        set => SetProperty(ref _flashStatus, value);
+        get => _flashState.FlashStatus;
+        set => SetProperty(ref _flashState.FlashStatus, value);
     }
 
     public string DeviceStatusSummary
@@ -262,10 +262,10 @@ public partial class MainViewModel
 
     public string ConfigWifiSsid
     {
-        get => _configWifiSsid;
+        get => _wifiState.ConfigWifiSsid;
         set
         {
-            if (SetProperty(ref _configWifiSsid, value))
+            if (SetProperty(ref _wifiState.ConfigWifiSsid, value))
             {
                 RaisePropertyChanged(nameof(InputStatusText));
             }
@@ -274,10 +274,10 @@ public partial class MainViewModel
 
     public string ConfigWifiPassword
     {
-        get => _configWifiPassword;
+        get => _wifiState.ConfigWifiPassword;
         set
         {
-            if (SetProperty(ref _configWifiPassword, value))
+            if (SetProperty(ref _wifiState.ConfigWifiPassword, value))
             {
                 RaisePropertyChanged(nameof(InputStatusText));
             }
@@ -286,12 +286,12 @@ public partial class MainViewModel
 
     public bool WifiPasswordStored
     {
-        get => _wifiPasswordStored;
+        get => _wifiState.WifiPasswordStored;
         set
         {
-            if (SetProperty(ref _wifiPasswordStored, value))
+            if (SetProperty(ref _wifiState.WifiPasswordStored, value))
             {
-                if (!_wifiPasswordStored)
+                if (!_wifiState.WifiPasswordStored)
                 {
                     ReuseWifiPassword = false;
                 }
@@ -304,10 +304,10 @@ public partial class MainViewModel
 
     public bool ReuseWifiPassword
     {
-        get => _reuseWifiPassword;
+        get => _wifiState.ReuseWifiPassword;
         set
         {
-            if (SetProperty(ref _reuseWifiPassword, value))
+            if (SetProperty(ref _wifiState.ReuseWifiPassword, value))
             {
                 RaisePropertyChanged(nameof(CanEditWifiPassword));
                 RaisePropertyChanged(nameof(InputStatusText));
@@ -320,12 +320,12 @@ public partial class MainViewModel
 
     public bool WifiEnabled
     {
-        get => _wifiEnabled;
+        get => _wifiState.WifiEnabled;
         set
         {
-            if (SetProperty(ref _wifiEnabled, value))
+            if (SetProperty(ref _wifiState.WifiEnabled, value))
             {
-                if (!_wifiEnabled)
+                if (!_wifiState.WifiEnabled)
                 {
                     MiningEnabled = false;
                     AiEnabled = false;
@@ -340,10 +340,10 @@ public partial class MainViewModel
 
     public bool MiningEnabled
     {
-        get => _miningEnabled;
+        get => _wifiState.MiningEnabled;
         set
         {
-            if (SetProperty(ref _miningEnabled, value))
+            if (SetProperty(ref _wifiState.MiningEnabled, value))
             {
                 RaisePropertyChanged(nameof(IsMiningDisabled));
                 RaisePropertyChanged(nameof(MiningModeSummary));
@@ -355,10 +355,10 @@ public partial class MainViewModel
 
     public bool AiEnabled
     {
-        get => _aiEnabled;
+        get => _wifiState.AiEnabled;
         set
         {
-            if (SetProperty(ref _aiEnabled, value))
+            if (SetProperty(ref _wifiState.AiEnabled, value))
             {
                 RaiseApiValidationStateChanged();
                 RaisePropertyChanged(nameof(InputStatusText));
@@ -372,10 +372,10 @@ public partial class MainViewModel
 
     public string DucoUser
     {
-        get => _ducoUser;
+        get => _wifiState.DucoUser;
         set
         {
-            if (SetProperty(ref _ducoUser, value))
+            if (SetProperty(ref _wifiState.DucoUser, value))
             {
                 RaisePropertyChanged(nameof(InputStatusText));
             }
@@ -384,10 +384,10 @@ public partial class MainViewModel
 
     public string DucoMinerKey
     {
-        get => _ducoMinerKey;
+        get => _wifiState.DucoMinerKey;
         set
         {
-            if (SetProperty(ref _ducoMinerKey, value))
+            if (SetProperty(ref _wifiState.DucoMinerKey, value))
             {
                 RaisePropertyChanged(nameof(InputStatusText));
             }
@@ -396,12 +396,12 @@ public partial class MainViewModel
 
     public bool DucoKeyStored
     {
-        get => _ducoKeyStored;
+        get => _wifiState.DucoKeyStored;
         set
         {
-            if (SetProperty(ref _ducoKeyStored, value))
+            if (SetProperty(ref _wifiState.DucoKeyStored, value))
             {
-                if (!_ducoKeyStored)
+                if (!_wifiState.DucoKeyStored)
                 {
                     ReuseDucoMinerKey = false;
                 }
@@ -414,10 +414,10 @@ public partial class MainViewModel
 
     public bool ReuseDucoMinerKey
     {
-        get => _reuseDucoMinerKey;
+        get => _wifiState.ReuseDucoMinerKey;
         set
         {
-            if (SetProperty(ref _reuseDucoMinerKey, value))
+            if (SetProperty(ref _wifiState.ReuseDucoMinerKey, value))
             {
                 RaisePropertyChanged(nameof(CanEditDucoMinerKey));
                 RaisePropertyChanged(nameof(InputStatusText));
@@ -430,10 +430,10 @@ public partial class MainViewModel
 
     public string ConfigOpenAiKey
     {
-        get => _configOpenAiKey;
+        get => _aiState.ConfigOpenAiKey;
         set
         {
-            if (SetProperty(ref _configOpenAiKey, value))
+            if (SetProperty(ref _aiState.ConfigOpenAiKey, value))
             {
                 MaskedOpenAiKey = DeviceConfig.Mask(value);
                 _openAiTestedKey = "";
@@ -448,12 +448,12 @@ public partial class MainViewModel
 
     public bool OpenAiKeyStored
     {
-        get => _openAiKeyStored;
+        get => _aiState.OpenAiKeyStored;
         set
         {
-            if (SetProperty(ref _openAiKeyStored, value))
+            if (SetProperty(ref _aiState.OpenAiKeyStored, value))
             {
-                if (!_openAiKeyStored)
+                if (!_aiState.OpenAiKeyStored)
                 {
                     ReuseOpenAiKey = false;
                 }
@@ -468,10 +468,10 @@ public partial class MainViewModel
 
     public bool ReuseOpenAiKey
     {
-        get => _reuseOpenAiKey;
+        get => _aiState.ReuseOpenAiKey;
         set
         {
-            if (SetProperty(ref _reuseOpenAiKey, value))
+            if (SetProperty(ref _aiState.ReuseOpenAiKey, value))
             {
                 _openAiTestedKey = "";
                 _openAiTestedOk = false;
@@ -488,41 +488,41 @@ public partial class MainViewModel
 
     public string ConfigOpenAiModel
     {
-        get => _configOpenAiModel;
-        set => SetProperty(ref _configOpenAiModel, NormalizeOpenAiModel(value));
+        get => _aiState.ConfigOpenAiModel;
+        set => SetProperty(ref _aiState.ConfigOpenAiModel, NormalizeOpenAiModel(value));
     }
 
     public string ConfigOpenAiInstructions
     {
-        get => _configOpenAiInstructions;
-        set => SetProperty(ref _configOpenAiInstructions, value);
+        get => _aiState.ConfigOpenAiInstructions;
+        set => SetProperty(ref _aiState.ConfigOpenAiInstructions, value);
     }
 
     public string DisplaySleepSecondsText
     {
-        get => _displaySleepSecondsText;
-        set => SetProperty(ref _displaySleepSecondsText, value);
+        get => _aiState.DisplaySleepSecondsText;
+        set => SetProperty(ref _aiState.DisplaySleepSecondsText, value);
     }
 
     public bool CaptureSerialLogAfterReboot
     {
-        get => _captureSerialLogAfterReboot;
-        set => SetProperty(ref _captureSerialLogAfterReboot, value);
+        get => _aiState.CaptureSerialLogAfterReboot;
+        set => SetProperty(ref _aiState.CaptureSerialLogAfterReboot, value);
     }
 
     public string SpeakerVolumeText
     {
-        get => _speakerVolumeText;
+        get => _aiState.SpeakerVolumeText;
         set
         {
-            if (SetProperty(ref _speakerVolumeText, value))
+            if (SetProperty(ref _aiState.SpeakerVolumeText, value))
             {
                 if (int.TryParse(value, out var raw))
                 {
                     raw = Math.Clamp(raw, 0, 255);
-                    if (_speakerVolumeRaw != raw)
+                    if (_aiState.SpeakerVolumeRaw != raw)
                     {
-                        _speakerVolumeRaw = raw;
+                        _aiState.SpeakerVolumeRaw = raw;
                         RaisePropertyChanged(nameof(SpeakerVolumeRaw));
                     }
                 }
@@ -532,16 +532,16 @@ public partial class MainViewModel
 
     public int SpeakerVolumeRaw
     {
-        get => _speakerVolumeRaw;
+        get => _aiState.SpeakerVolumeRaw;
         set
         {
             var clamped = Math.Clamp(value, 0, 255);
-            if (SetProperty(ref _speakerVolumeRaw, clamped))
+            if (SetProperty(ref _aiState.SpeakerVolumeRaw, clamped))
             {
-                var rawText = _speakerVolumeRaw.ToString();
-                if (_speakerVolumeText != rawText)
+                var rawText = _aiState.SpeakerVolumeRaw.ToString();
+                if (_aiState.SpeakerVolumeText != rawText)
                 {
-                    _speakerVolumeText = rawText;
+                    _aiState.SpeakerVolumeText = rawText;
                     RaisePropertyChanged(nameof(SpeakerVolumeText));
                 }
             }
@@ -550,20 +550,20 @@ public partial class MainViewModel
 
     public string ShareAcceptedText
     {
-        get => _shareAcceptedText;
-        set => SetProperty(ref _shareAcceptedText, value);
+        get => _aiState.ShareAcceptedText;
+        set => SetProperty(ref _aiState.ShareAcceptedText, value);
     }
 
     public string AttentionText
     {
-        get => _attentionText;
-        set => SetProperty(ref _attentionText, value);
+        get => _aiState.AttentionText;
+        set => SetProperty(ref _aiState.AttentionText, value);
     }
 
     public string HelloText
     {
-        get => _helloText;
-        set => SetProperty(ref _helloText, value);
+        get => _aiState.HelloText;
+        set => SetProperty(ref _aiState.HelloText, value);
     }
 
     public string MaskedOpenAiKey
@@ -588,10 +588,10 @@ public partial class MainViewModel
 
     public string AzureKey
     {
-        get => _azureKey;
+        get => _aiState.AzureKey;
         set
         {
-            if (SetProperty(ref _azureKey, value))
+            if (SetProperty(ref _aiState.AzureKey, value))
             {
                 AzureKeyStored = !string.IsNullOrWhiteSpace(value);
                 ResetAzureTestState();
@@ -602,12 +602,12 @@ public partial class MainViewModel
 
     public bool AzureKeyStored
     {
-        get => _azureKeyStored;
+        get => _aiState.AzureKeyStored;
         set
         {
-            if (SetProperty(ref _azureKeyStored, value))
+            if (SetProperty(ref _aiState.AzureKeyStored, value))
             {
-                if (!_azureKeyStored)
+                if (!_aiState.AzureKeyStored)
                 {
                     ReuseAzureKey = false;
                 }
@@ -622,10 +622,10 @@ public partial class MainViewModel
 
     public bool ReuseAzureKey
     {
-        get => _reuseAzureKey;
+        get => _aiState.ReuseAzureKey;
         set
         {
-            if (SetProperty(ref _reuseAzureKey, value))
+            if (SetProperty(ref _aiState.ReuseAzureKey, value))
             {
                 ResetAzureTestState();
                 RaisePropertyChanged(nameof(CanEditAzureKey));
@@ -643,15 +643,14 @@ public partial class MainViewModel
         ? "M5StackCore2内の情報を利用するためスキップします。"
         : "必要に応じてここでAPIキーの有効確認を実行できます。";
 
-    private bool IsUsingStoredApiKeys =>
-        (OpenAiKeyStored && ReuseOpenAiKey) || (AzureKeyStored && ReuseAzureKey);
+    private bool IsUsingStoredApiKeys => _configurationStateService.IsUsingStoredApiKeys(this);
 
     public string AzureRegion
     {
-        get => _azureRegion;
+        get => _aiState.AzureRegion;
         set
         {
-            if (SetProperty(ref _azureRegion, value))
+            if (SetProperty(ref _aiState.AzureRegion, value))
             {
                 ResetAzureTestState();
                 RaisePropertyChanged(nameof(InputStatusText));
@@ -661,10 +660,10 @@ public partial class MainViewModel
 
     public string AzureCustomSubdomain
     {
-        get => _azureCustomSubdomain;
+        get => _aiState.AzureCustomSubdomain;
         set
         {
-            if (SetProperty(ref _azureCustomSubdomain, value))
+            if (SetProperty(ref _aiState.AzureCustomSubdomain, value))
             {
                 ResetAzureTestState();
             }

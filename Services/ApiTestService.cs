@@ -12,7 +12,7 @@ using Serilog;
 
 namespace AiStackchanSetup.Services;
 
-public class ApiTestService
+public class ApiTestService : IApiTestService
 {
     public const string ModelsEndpoint = "https://api.openai.com/v1/models";
     public const string ResponsesEndpoint = "https://api.openai.com/v1/responses";

@@ -1,8 +1,7 @@
 <Application x:Class="AiStackchanSetup.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:converters="clr-namespace:AiStackchanSetup.Infrastructure"
-             StartupUri="MainWindow.xaml">
+             xmlns:converters="clr-namespace:AiStackchanSetup.Infrastructure">
     <Application.Resources>
         <converters:StepToVisibilityConverter x:Key="StepToVisibilityConverter" />
         <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />

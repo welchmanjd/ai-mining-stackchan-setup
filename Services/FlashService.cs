@@ -9,7 +9,7 @@ using Serilog;
 
 namespace AiStackchanSetup.Services;
 
-public partial class FlashService
+public partial class FlashService : IFlashService
 {
     private readonly object _activeProcessesLock = new();
     private readonly HashSet<Process> _activeProcesses = new();

@@ -75,27 +75,15 @@ public partial class MainViewModel
 
     private void AutoSkipOptionalSteps()
     {
-        while (true)
+        while (Step < _stepController.LastStepIndex)
         {
-            if (Step == 5 && !WifiEnabled)
+            var definition = StepDefinitions.GetByIndex(Step);
+            if (definition.IsAvailable(this))
             {
-                Step = 6;
-                continue;
+                break;
             }
 
-            if (Step == 6 && !(WifiEnabled && (MiningEnabled || AiEnabled)))
-            {
-                Step = 7;
-                continue;
-            }
-
-            if (Step == 7 && (!WifiEnabled || !AiEnabled))
-            {
-                Step = 8;
-                continue;
-            }
-
-            break;
+            _stepController.MoveNext();
         }
     }
 

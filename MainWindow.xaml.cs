@@ -12,9 +12,14 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
 
     public MainWindow()
+        : this(new MainViewModel())
+    {
+    }
+
+    public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent();
-        _viewModel = new MainViewModel();
+        _viewModel = viewModel;
         DataContext = _viewModel;
         AddHandler(UIElement.PreviewMouseWheelEvent, new MouseWheelEventHandler(OnPreviewMouseWheel), true);
     }

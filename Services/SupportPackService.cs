@@ -10,7 +10,7 @@ using Serilog;
 
 namespace AiStackchanSetup.Services;
 
-public class SupportPackService
+public class SupportPackService : ISupportPackService
 {
     public async Task<string> CreateSupportPackAsync(SupportSummary summary, DeviceConfig config)
     {

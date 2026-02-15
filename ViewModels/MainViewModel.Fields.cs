@@ -12,12 +12,13 @@ public partial class MainViewModel
     // Responsibility: own private fields and shared mutable state for all partials.
     private const string ReuseValidationSkippedText = "再利用するため検証対象外";
 
-    private readonly SerialService _serialService = new();
-    private readonly FlashService _flashService = new();
-    private readonly ApiTestService _apiTestService = new();
-    private readonly SupportPackService _supportPackService = new();
-    private readonly RetryPolicy _retryPolicy = new();
-    private readonly StepTimeouts _timeouts = new();
+    private readonly ISerialService _serialService;
+    private readonly IFlashService _flashService;
+    private readonly IApiTestService _apiTestService;
+    private readonly ISupportPackService _supportPackService;
+    private readonly RetryPolicy _retryPolicy;
+    private readonly StepTimeouts _timeouts;
+    private readonly ConfigurationStateService _configurationStateService = new();
     private readonly StepController _stepController;
     private readonly StepContext _stepContext;
     private CancellationTokenSource? _stepCts;
@@ -36,50 +37,20 @@ public partial class MainViewModel
     private bool _isManualPortSelection;
 
     private SerialPortInfo? _selectedPort;
-    private string _firmwarePath = ResolveDefaultFirmwarePath();
-    private string _flashBaudText = "921600";
-    private bool _flashErase;
-    private int _flashMode;
-    private string _flashStatus = "";
-    private string _firmwareInfoText = "";
-    private string _currentFirmwareInfoText = "未取得";
-    private string _firmwareCompareMessage = "";
+    private readonly FlashSettingsState _flashState = new()
+    {
+        FirmwarePath = ResolveDefaultFirmwarePath()
+    };
     private string _deviceStatusSummary = "未取得";
     private string _deviceInfoJson = "";
     private string _lastProtocolResponse = "";
     private string _deviceLogPath = "";
 
-    private string _configWifiSsid = "";
-    private string _configWifiPassword = "";
-    private bool _wifiPasswordStored;
-    private bool _reuseWifiPassword;
-    private bool _wifiEnabled = true;
-    private bool _miningEnabled = true;
-    private bool _aiEnabled = true;
-    private string _ducoUser = "";
-    private string _ducoMinerKey = "";
-    private bool _ducoKeyStored;
-    private bool _reuseDucoMinerKey;
-    private string _configOpenAiKey = "";
-    private bool _openAiKeyStored;
-    private bool _reuseOpenAiKey;
-    private string _configOpenAiModel = "gpt-5-nano";
-    private string _configOpenAiInstructions = "あなたはスタックチャンの会話AIです。日本語で短く答えてください。返答は120文字以内。箇条書き禁止。1〜2文。相手が『聞こえる？』等の確認なら、明るく短く返してください。";
-    private string _displaySleepSecondsText = "60";
-    private bool _captureSerialLogAfterReboot = false;
-    private string _speakerVolumeText = "160";
-    private int _speakerVolumeRaw = 160;
-    private string _shareAcceptedText = "シェア獲得したよ！";
-    private string _attentionText = "Hi";
-    private string _helloText = "こんにちはマイニングスタックチャンです";
+    private readonly WifiSettingsState _wifiState = new();
+    private readonly AiSettingsState _aiState = new();
     private string _maskedOpenAiKey = "";
     // Stub: save-to-PC and Azure integration are not implemented in v1 (UI only).
     private bool _saveToPc;
-    private string _azureKey = "";
-    private bool _azureKeyStored;
-    private bool _reuseAzureKey;
-    private string _azureRegion = "";
-    private string _azureCustomSubdomain = "";
 
     private string _apiTestSummary = "未実行";
     private string _azureTestSummary = "未実行";

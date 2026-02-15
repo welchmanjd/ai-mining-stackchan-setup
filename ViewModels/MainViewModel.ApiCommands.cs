@@ -281,34 +281,19 @@ public partial class MainViewModel
 
     private void RaiseApiValidationStateChanged()
     {
-        RaisePropertyChanged(nameof(CanRunApiValidation));
-        RaisePropertyChanged(nameof(ApiValidationGuideText));
-        ((AsyncRelayCommand)ValidateApiKeysCommand).RaiseCanExecuteChanged();
+        _configurationStateService.RaiseApiValidationStateChanged(
+            this,
+            propertyName => RaisePropertyChanged(propertyName),
+            (AsyncRelayCommand)ValidateApiKeysCommand);
     }
 
     private void RefreshApiValidationSummaries()
     {
-        if (OpenAiKeyStored && ReuseOpenAiKey)
-        {
-            ApiTestSummary = ReuseValidationSkippedText;
-            SetApiSummaryVisual(null);
-        }
-        else if (ApiTestSummary == ReuseValidationSkippedText)
-        {
-            ApiTestSummary = UiText.NotExecuted;
-            SetApiSummaryVisual(null);
-        }
-
-        if (AzureKeyStored && ReuseAzureKey)
-        {
-            AzureTestSummary = ReuseValidationSkippedText;
-            SetAzureSummaryVisual(null);
-        }
-        else if (AzureTestSummary == ReuseValidationSkippedText)
-        {
-            AzureTestSummary = UiText.NotExecuted;
-            SetAzureSummaryVisual(null);
-        }
+        _configurationStateService.RefreshApiValidationSummaries(
+            this,
+            ReuseValidationSkippedText,
+            SetApiSummaryVisual,
+            SetAzureSummaryVisual);
     }
 
     private async Task TestOpenAiAsync()
