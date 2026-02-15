@@ -35,7 +35,7 @@ public sealed class RuntimeSettingsStep : StepBase
 
                 var config = vm.BuildDeviceConfig();
                 Serilog.Log.Information(
-                    "Config send flags wifi_enabled={Wifi} mining_enabled={Mining} ai_enabled={Ai}",
+                    "step.runtime_settings.config_flags wifi_enabled={WifiEnabled} mining_enabled={MiningEnabled} ai_enabled={AiEnabled}",
                     config.WifiEnabled,
                     config.MiningEnabled,
                     config.AiEnabled);

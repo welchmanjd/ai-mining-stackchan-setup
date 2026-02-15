@@ -49,9 +49,9 @@ public sealed class StepController
         step.OnEnter(_context);
         try
         {
-            Log.Information("Step start {Index}:{Title}", step.Index, step.Title);
+            Log.Information("step.start index={StepIndex} title={StepTitle}", step.Index, step.Title);
             var result = await step.ExecuteAsync(_context, token);
-            Log.Information("Step end {Index}:{Title} status={Status} canRetry={CanRetry} error={Error}",
+            Log.Information("step.end index={StepIndex} title={StepTitle} status={Status} canRetry={CanRetry} error={Error}",
                 step.Index, step.Title, result.Status, result.CanRetry, result.ErrorMessage);
             return result;
         }

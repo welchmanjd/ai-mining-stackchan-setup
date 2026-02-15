@@ -133,7 +133,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Test failed");
+            Log.Error(ex, "api_commands.run_tests.failed");
             ErrorMessage = UiText.TestFailed;
             _lastError = ex.Message;
         }
@@ -181,7 +181,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Azure test failed");
+            Log.Error(ex, "api_commands.azure_test.failed");
             ErrorMessage = UiText.AzureKeyCheckFailed;
             _lastError = ex.Message;
         }
@@ -269,7 +269,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Validate API keys failed");
+            Log.Error(ex, "api_commands.validate_api_keys.failed");
             ErrorMessage = UiText.ApiKeyCheckFailed;
             _lastError = ex.Message;
         }
@@ -323,7 +323,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "OpenAI test failed");
+            Log.Error(ex, "api_commands.openai_test.failed");
             ErrorMessage = UiText.OpenAiKeyCheckFailed;
             _lastError = ex.Message;
         }

@@ -83,7 +83,8 @@ public sealed class FeatureToggleStep : StepBase
                     vm.AiEnabled = aiEnabled;
                 }
 
-                vm.StatusMessage = StepText.DeviceSettingsLoadCompleted;
+                // Clear transient load status to avoid stale success text in later steps.
+                vm.StatusMessage = string.Empty;
                 return StepResult.Ok();
             },
             before: vmLocal =>

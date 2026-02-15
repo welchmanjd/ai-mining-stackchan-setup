@@ -182,6 +182,11 @@
                                 <StackPanel Margin="0,0,0,8">
                                     <TextBlock Text="カスタムサブドメイン（もしあれば）" />
                                     <TextBox Text="{Binding AzureCustomSubdomain}" />
+                                    <TextBlock Text="例: mining-stackchan-tts（http:// は不要、末尾 / は不要。mining-stackchan-tts.cognitiveservices.azure.com も可）"
+                                               FontSize="12"
+                                               Foreground="#6B7280"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap" />
                                 </StackPanel>
                             </StackPanel>
 

@@ -90,7 +90,7 @@ public sealed class DetectPortsStep : StepBase
             },
             onError: (vmLocal, ex) =>
             {
-                Log.Error(ex, "Detect ports failed");
+                Log.Error(ex, "step.detect_ports.failed");
                 vmLocal.ErrorMessage = StepText.PortDetectionFailed;
                 vmLocal.LastError = ex.Message;
                 return StepResult.Fail(StepText.PortDetectionFailed, guidance: StepText.UsbConnectionAndDriverGuidance);

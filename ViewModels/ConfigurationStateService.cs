@@ -17,7 +17,7 @@ internal sealed class ConfigurationStateService
             displaySleepSeconds = parsedSleep;
         }
 
-        var speakerVolume = 160;
+        var speakerVolume = 100;
         if (!string.IsNullOrWhiteSpace(vm.SpeakerVolumeText) &&
             int.TryParse(vm.SpeakerVolumeText, out var parsedVolume) &&
             parsedVolume >= 0 && parsedVolume <= 255)

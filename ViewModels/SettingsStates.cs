@@ -36,8 +36,8 @@ internal sealed class AiSettingsState
     public string ConfigOpenAiInstructions = "あなたはスタックチャンの会話AIです。日本語で短く答えてください。返答は120文字以内。箇条書き禁止。1〜2文。相手が『聞こえる？』等の確認なら、明るく短く返してください。";
     public string DisplaySleepSecondsText = "60";
     public bool CaptureSerialLogAfterReboot;
-    public string SpeakerVolumeText = "160";
-    public int SpeakerVolumeRaw = 160;
+    public string SpeakerVolumeText = "100";
+    public int SpeakerVolumeRaw = 100;
     public string ShareAcceptedText = "シェア獲得したよ！";
     public string AttentionText = "Hi";
     public string HelloText = "こんにちはマイニングスタックチャンです";

@@ -55,12 +55,12 @@ public static class LogService
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] {Level:u3} {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
 
-        Log.Information("App started");
+        Log.Information("app.lifecycle.started");
     }
 
     public static void Shutdown()
     {
-        Log.Information("App shutting down");
+        Log.Information("app.lifecycle.stopping");
         Log.CloseAndFlush();
     }
 

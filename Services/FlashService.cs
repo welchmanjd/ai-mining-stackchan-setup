@@ -94,7 +94,7 @@ public partial class FlashService : IFlashService
                 {
                     if (hasEsptool)
                     {
-                        Log.Warning("espflash erase failed. Falling back to esptool.py erase_flash");
+                        Log.Warning("flash.espflash.erase_failed fallback=esptool");
                         var eraseFallbackArgs = FlashCommandPlan.BuildEsptoolEraseArgs(portName, 115200);
                         var eraseFallback = await RunEsptoolAsync(eraseFallbackArgs, portName, 115200, erase, firmwarePath, token);
                         if (eraseFallback.IsFailure)
@@ -136,7 +136,7 @@ public partial class FlashService : IFlashService
 
                 if (hasEsptool)
                 {
-                    Log.Warning("espflash failed. Falling back to esptool.py");
+                    Log.Warning("flash.espflash.write_failed fallback=esptool");
                     var fallbackArgs = FlashCommandPlan.BuildEsptoolWriteArgs(portName, 115200, firmwarePath, noStub: true);
                     var fallback = await RunEsptoolAsync(fallbackArgs, portName, 115200, erase, firmwarePath, token);
                     fallback.Message = fallback.Success ? "書き込み成功 (esptool fallback)" : "書き込み失敗 (espflash + esptool)";
@@ -149,7 +149,7 @@ public partial class FlashService : IFlashService
 
             if (hasEsptool)
             {
-                Log.Warning("Skipping espflash write due to prior espflash failure. Using esptool.py directly.");
+                Log.Warning("flash.espflash.write_skipped_using_esptool");
                 var fallbackArgs = FlashCommandPlan.BuildEsptoolWriteArgs(portName, 115200, firmwarePath, noStub: true);
                 var fallback = await RunEsptoolAsync(fallbackArgs, portName, 115200, erase, firmwarePath, token);
                 fallback.Message = fallback.Success ? "書き込み成功 (esptool direct)" : "書き込み失敗 (esptool direct)";

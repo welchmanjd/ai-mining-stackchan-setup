@@ -59,7 +59,7 @@ public partial class FlashService
 
             if (!success)
             {
-                Log.Warning("{Tool} exit code {Code}", toolName, process.ExitCode);
+                Log.Warning("flash.tool.exit_code tool={Tool} exit_code={Code}", toolName, process.ExitCode);
             }
 
             return new FlashResult
@@ -83,7 +83,7 @@ public partial class FlashService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "{Tool} execution failed", toolName);
+            Log.Error(ex, "flash.tool.execution.failed tool={Tool}", toolName);
             await File.WriteAllTextAsync(logPath, output.ToString(), token);
             return new FlashResult
             {
@@ -164,7 +164,7 @@ public partial class FlashService
 
             if (!success)
             {
-                Log.Warning("esptool exit code {Code}", process.ExitCode);
+                Log.Warning("flash.esptool.exit_code exit_code={Code}", process.ExitCode);
             }
 
             return new FlashResult
@@ -189,7 +189,7 @@ public partial class FlashService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "esptool execution failed");
+            Log.Error(ex, "flash.esptool.execution.failed");
             await File.WriteAllTextAsync(logPath, output.ToString(), token);
             return new FlashResult
             {

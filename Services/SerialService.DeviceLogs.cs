@@ -339,12 +339,12 @@ public partial class SerialService
         }
         catch (ObjectDisposedException ex)
         {
-            Log.Warning(ex, "LOG_DUMP aborted (port closed)");
+            Log.Warning(ex, "serial.log_dump.aborted_port_closed");
             return sb.ToString();
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "LOG_DUMP failed");
+            Log.Error(ex, "serial.log_dump.failed");
             return string.Empty;
         }
     }

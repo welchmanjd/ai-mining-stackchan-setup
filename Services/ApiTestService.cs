@@ -48,7 +48,7 @@ public class ApiTestService : IApiTestService
                 return new ApiTestResult { Success = false, Message = "gpt-5-nanoが利用できません" };
             }
 
-            Log.Information("OpenAI API test using model {Model}", modelId);
+            Log.Information("api_test.openai.model_selected model={Model}", modelId);
             var payload = new
             {
                 model = modelId,
@@ -65,7 +65,7 @@ public class ApiTestService : IApiTestService
             {
                 var body = await response.Content.ReadAsStringAsync(token);
                 var snippet = body.Length > 200 ? body[..200] : body;
-                Log.Warning("OpenAI API test failed http={Status} body={Body}", (int)response.StatusCode, snippet);
+                Log.Warning("api_test.openai.request_failed status={Status} body={Body}", (int)response.StatusCode, snippet);
             }
 
             return new ApiTestResult
@@ -81,7 +81,7 @@ public class ApiTestService : IApiTestService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "API test failed");
+            Log.Error(ex, "api_test.openai.exception");
             return new ApiTestResult { Success = false, Message = ex.Message };
         }
     }
@@ -128,7 +128,7 @@ public class ApiTestService : IApiTestService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Azure Speech API test failed");
+            Log.Error(ex, "api_test.azure_speech.exception");
             return new ApiTestResult { Success = false, Message = ex.Message };
         }
     }

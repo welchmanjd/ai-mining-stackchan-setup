@@ -90,7 +90,7 @@ public sealed class FlashStep : StepBase
             },
             onError: (vmLocal, ex) =>
             {
-                Log.Error(ex, "Flash failed");
+                Log.Error(ex, "step.flash.failed");
                 vmLocal.ErrorMessage = $"{StepText.FlashWriteFailed} / Log: {Services.LogService.FlashLogPath}";
                 vmLocal.LastError = ex.Message;
                 vmLocal.PrimaryButtonText = UiText.Retry;

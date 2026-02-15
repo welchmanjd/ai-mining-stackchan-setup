@@ -46,13 +46,13 @@ public partial class MainViewModel
         }
         catch (SerialCommandException ex)
         {
-            Log.Warning(ex, "Device log dump not supported");
+            Log.Warning(ex, "support.device_log_dump.unsupported");
             ErrorMessage = UiText.DeviceLogUnsupported;
             _lastError = ex.Message;
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Device log dump failed");
+            Log.Error(ex, "support.device_log_dump.failed");
             ErrorMessage = UiText.DeviceLogFetchFailed;
             _lastError = ex.Message;
         }
@@ -88,7 +88,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Open log folder failed");
+            Log.Error(ex, "support.open_log_folder.failed");
         }
     }
 
@@ -112,7 +112,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Open flash log failed");
+            Log.Error(ex, "support.open_flash_log.failed");
         }
     }
 
@@ -150,7 +150,7 @@ public partial class MainViewModel
             }
             catch (SerialCommandException ex)
             {
-                Log.Warning(ex, "Device log dump not supported");
+                Log.Warning(ex, "support.device_log_dump.unsupported");
                 deviceLog = string.Empty;
             }
             if (!string.IsNullOrWhiteSpace(deviceLog))
@@ -166,7 +166,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Support pack failed");
+            Log.Error(ex, "support.support_pack.failed");
             ErrorMessage = UiText.SupportPackCreationFailed;
         }
     }

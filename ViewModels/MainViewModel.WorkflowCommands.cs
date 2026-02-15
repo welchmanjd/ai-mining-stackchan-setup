@@ -25,7 +25,7 @@ public partial class MainViewModel
         }
         catch (OperationCanceledException)
         {
-            Log.Information("Step cancelled by user");
+            Log.Information("workflow.step.cancelled_by_user");
             result = StepResult.Cancelled();
         }
         finally
@@ -102,7 +102,7 @@ public partial class MainViewModel
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "PrepareForShutdown failed");
+            Log.Error(ex, "workflow.prepare_for_shutdown.failed");
         }
     }
 

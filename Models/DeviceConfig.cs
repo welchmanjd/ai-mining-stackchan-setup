@@ -16,7 +16,7 @@ public class DeviceConfig
     public string AzureRegion { get; set; } = string.Empty;
     public string AzureCustomSubdomain { get; set; } = string.Empty;
     public int DisplaySleepSeconds { get; set; } = 60;
-    public int SpeakerVolume { get; set; } = 160;
+    public int SpeakerVolume { get; set; } = 100;
     public string ShareAcceptedText { get; set; } = string.Empty;
     public string AttentionText { get; set; } = string.Empty;
     public string HelloText { get; set; } = string.Empty;

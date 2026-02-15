@@ -49,7 +49,7 @@ public class SupportPackService : ISupportPackService
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Support pack creation failed");
+            Log.Error(ex, "support_pack.create.failed");
         }
 
         return zipPath;
@@ -88,7 +88,7 @@ public class SupportPackService : ISupportPackService
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Failed to read log file {Path}", path);
+            Log.Warning(ex, "support_pack.read_log.failed path={Path}", path);
             return $"Failed to read log file: {path}";
         }
     }

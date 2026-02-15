@@ -62,7 +62,7 @@ public partial class SerialService
             serial.ReadTimeout = (int)timeout.TotalMilliseconds;
             serial.WriteTimeout = (int)timeout.TotalMilliseconds;
 
-            Log.Information("Serial send {Command}", command.Split(' ')[0]);
+            Log.Information("serial.command.send command={Command}", command.Split(' ')[0]);
             trace.AppendLine("write: ok");
             serial.WriteLine(command);
 
@@ -86,13 +86,13 @@ public partial class SerialService
 
             if (line == null)
             {
-                Log.Warning("Serial timeout for {Command}", command.Split(' ')[0]);
+                Log.Warning("serial.command.timeout command={Command}", command.Split(' ')[0]);
                 trace.AppendLine("read: timeout");
                 await AppendSerialTraceAsync(trace);
                 throw new TimeoutException($"デバイス応答がタイムアウトしました ({command})");
             }
 
-            Log.Information("Serial recv: {Line}", line);
+            Log.Information("serial.command.recv line={Line}", line);
             trace.AppendLine($"read: {line}");
             await AppendSerialTraceAsync(trace);
             var trimmed = line.Trim();
@@ -122,7 +122,7 @@ public partial class SerialService
         {
             // Timeout is often transient during boot logs; keep port open to avoid
             // triggering extra resets by close/open cycles on next probe.
-            Log.Warning(ex, "Serial command timeout");
+            Log.Warning(ex, "serial.command.timeout.exception");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
             throw;
@@ -130,7 +130,7 @@ public partial class SerialService
         catch (SerialCommandException ex)
         {
             // Protocol-level error; keep port open for subsequent retry/commands.
-            Log.Warning(ex, "Serial command protocol error");
+            Log.Warning(ex, "serial.command.protocol_error");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
             throw;
@@ -138,7 +138,7 @@ public partial class SerialService
         catch (Exception ex)
         {
             // On error, force close to ensure fresh state next time
-            Log.Error(ex, "Serial command failed");
+            Log.Error(ex, "serial.command.failed");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
             Close();
