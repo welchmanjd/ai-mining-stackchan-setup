@@ -274,8 +274,8 @@ public class SerialService : IDisposable
             if (!result.Success) return result;
         }
 
-        var ducoUserToSend = config.MiningEnabled ? config.DucoUser : string.Empty;
-        var ducoKeyToSend = config.MiningEnabled ? config.DucoMinerKey : string.Empty;
+        var ducoUserToSend = config.DucoUser;
+        var ducoKeyToSend = config.DucoMinerKey;
         {
             var result = await SendSetWithCompatAsync("duco_user", ducoUserToSend, allowUnknownKey: false);
             if (!result.Success) return result;

@@ -1568,8 +1568,8 @@ public class MainViewModel : BindableBase
         var miningEnabled = wifiEnabled && MiningEnabled;
         var aiEnabled = wifiEnabled && AiEnabled;
 
-        var ducoUserToSend = miningEnabled ? DucoUser : string.Empty;
-        var ducoKeyToSend = miningEnabled ? ((ReuseDucoMinerKey && DucoKeyStored) ? "" : DucoMinerKey) : string.Empty;
+        var ducoUserToSend = DucoUser;
+        var ducoKeyToSend = (ReuseDucoMinerKey && DucoKeyStored) ? "" : DucoMinerKey;
 
         return new DeviceConfig
         {
