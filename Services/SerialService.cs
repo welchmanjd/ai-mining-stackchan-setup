@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -42,21 +42,26 @@ public class SerialService : IDisposable
                 {
                     PortName = port,
                     Description = desc ?? string.Empty,
-                    Score = ScorePort(desc)
+                    Score = ScorePort(port, desc)
                 };
                 list.Add(info);
             }
 
             return (IReadOnlyList<SerialPortInfo>)list
                 .OrderByDescending(p => p.Score)
-                .ThenBy(p => p.PortName)
+                .ThenByDescending(p => ParseComNumber(p.PortName))
+                .ThenBy(p => p.PortName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }, token);
     }
 
     public SerialPortInfo? SelectBestPort(IEnumerable<SerialPortInfo> ports)
     {
-        return ports.OrderByDescending(p => p.Score).FirstOrDefault();
+        return ports
+            .OrderByDescending(p => p.Score)
+            .ThenByDescending(p => ParseComNumber(p.PortName))
+            .ThenBy(p => p.PortName, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
     }
 
     public Task<HelloResult> HelloAsync(string portName)
@@ -74,7 +79,7 @@ public class SerialService : IDisposable
                 return new HelloResult { Success = true, Message = "OK" };
             }
 
-            return new HelloResult { Success = false, Message = "応答が期待形式ではありません" };
+            return new HelloResult { Success = false, Message = "応答が想定外です" };
         }
         catch (SerialCommandException ex)
         {
@@ -101,7 +106,7 @@ public class SerialService : IDisposable
                 return new CommandResult { Success = true, Message = "OK" };
             }
 
-            return new CommandResult { Success = false, Message = "応答が期待形式ではありません" };
+            return new CommandResult { Success = false, Message = "応答が想定外です" };
         }
         catch (SerialCommandException ex)
         {
@@ -132,14 +137,14 @@ public class SerialService : IDisposable
                 var response = await SendCommandAsync(portName, "GET INFO", timeout, token);
                 if (!response.StartsWith("@INFO", StringComparison.OrdinalIgnoreCase))
                 {
-                    return new DeviceInfoResult { Success = false, Message = "応答が期待形式ではありません" };
+                    return new DeviceInfoResult { Success = false, Message = "応答が想定外です" };
                 }
 
                 var json = response["@INFO".Length..].Trim();
                 var info = DeviceInfo.TryParse(json);
                 if (info == null)
                 {
-                    return new DeviceInfoResult { Success = false, Message = "INFO JSONが解析できません" };
+                    return new DeviceInfoResult { Success = false, Message = "INFO JSONを解析できません" };
                 }
 
                 return new DeviceInfoResult { Success = true, Message = "OK", RawJson = json, Info = info };
@@ -174,7 +179,7 @@ public class SerialService : IDisposable
             var response = await SendCommandAsync(portName, "GET CFG", TimeSpan.FromSeconds(8), token);
             if (!response.StartsWith("@CFG", StringComparison.OrdinalIgnoreCase))
             {
-                return (false, "応答が期待形式ではありません", string.Empty);
+                return (false, "応答が想定外です", string.Empty);
             }
 
             var json = response["@CFG".Length..].Trim();
@@ -215,12 +220,42 @@ public class SerialService : IDisposable
             return result;
         }
 
+        async Task<ConfigResult> SendSetAnyAsync(string[] keys, string value)
+        {
+            ConfigResult? last = null;
+            foreach (var key in keys)
+            {
+                var result = await SendSetAsync(portName, key, value, token);
+                if (result.Success)
+                {
+                    return result;
+                }
+
+                if (result.Message.Contains("unknown_key", StringComparison.OrdinalIgnoreCase))
+                {
+                    warnings.Add($"{key}:unsupported");
+                    last = result;
+                    continue;
+                }
+
+                return result;
+            }
+
+            return new ConfigResult
+            {
+                Success = true,
+                Message = last?.Message ?? "SKIP"
+            };
+        }
+
         {
             var result = await SendSetWithCompatAsync("wifi_enabled", config.WifiEnabled ? "1" : "0", allowUnknownKey: true);
             if (!result.Success) return result;
         }
         {
-            var result = await SendSetWithCompatAsync("mining_enabled", config.MiningEnabled ? "1" : "0", allowUnknownKey: true);
+            var result = await SendSetAnyAsync(
+                new[] { "mining_enabled", "duco_enabled", "mining_on" },
+                config.MiningEnabled ? "1" : "0");
             if (!result.Success) return result;
         }
         {
@@ -239,14 +274,14 @@ public class SerialService : IDisposable
             if (!result.Success) return result;
         }
 
+        var ducoUserToSend = config.MiningEnabled ? config.DucoUser : string.Empty;
+        var ducoKeyToSend = config.MiningEnabled ? config.DucoMinerKey : string.Empty;
         {
-            var result = await SendSetWithCompatAsync("duco_user", config.DucoUser, allowUnknownKey: false);
+            var result = await SendSetWithCompatAsync("duco_user", ducoUserToSend, allowUnknownKey: false);
             if (!result.Success) return result;
         }
-
-        if (!string.IsNullOrWhiteSpace(config.DucoMinerKey))
         {
-            var result = await SendSetWithCompatAsync("duco_miner_key", config.DucoMinerKey, allowUnknownKey: false);
+            var result = await SendSetWithCompatAsync("duco_miner_key", ducoKeyToSend, allowUnknownKey: false);
             if (!result.Success) return result;
         }
 
@@ -440,9 +475,76 @@ public class SerialService : IDisposable
 
     public Task<DeviceTestResult> RunTestAsync(string portName, CancellationToken token)
     {
-        return Task.FromResult(new DeviceTestResult { Success = false, Skipped = true, Message = "デバイス側テスト未実装の可能性" });
+        return Task.FromResult(new DeviceTestResult { Success = false, Skipped = true, Message = "デバイステスト機能は現在利用できません" });
     }
 
+
+    public async Task<DeviceInfo?> ReadBootBannerInfoAsync(string portName, TimeSpan timeout, CancellationToken token)
+    {
+        SerialPort? serial = null;
+        try
+        {
+            Close();
+
+            serial = new SerialPort(portName, BaudRate)
+            {
+                NewLine = "\n",
+                Encoding = Utf8NoBom,
+                ReadTimeout = 250,
+                WriteTimeout = 250,
+                Handshake = Handshake.None,
+                DtrEnable = false,
+                RtsEnable = false
+            };
+            serial.Open();
+            try { serial.DiscardInBuffer(); } catch { }
+
+            var deadline = DateTime.UtcNow + timeout;
+            var regex = new Regex(@"Mining-Stackchan-Core2\s+([0-9]+(?:\.[0-9]+){1,3})", RegexOptions.IgnoreCase);
+            while (DateTime.UtcNow < deadline)
+            {
+                token.ThrowIfCancellationRequested();
+                string? line = null;
+                try
+                {
+                    line = serial.ReadLine();
+                }
+                catch (TimeoutException)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                var m = regex.Match(line);
+                if (!m.Success)
+                {
+                    continue;
+                }
+
+                return new DeviceInfo
+                {
+                    App = "Mining-Stackchan-Core2",
+                    Ver = m.Groups[1].Value,
+                    BuildId = "boot-banner",
+                    Baud = BaudRate
+                };
+            }
+        }
+        catch
+        {
+            // best effort
+        }
+        finally
+        {
+            CloseLockedPort(serial);
+        }
+
+        return null;
+    }
     public string LastProtocolResponse { get; private set; } = string.Empty;
     public string LastInfoJson { get; private set; } = string.Empty;
 
@@ -565,27 +667,11 @@ public class SerialService : IDisposable
             serial.ReadTimeout = (int)timeout.TotalMilliseconds;
             serial.WriteTimeout = (int)timeout.TotalMilliseconds;
 
-            // Do NOT utilize 'using' as we want to keep it open
-            // Do NOT re-create StreamWriter/Reader every time if possible, but for safety in this refactoring 
-            // we will create wrappers around the BaseStream. 
-            // Note: Closing StreamWriter/Reader closes the BaseStream, so we must be careful.
-            // Argument 'leaveOpen' is available in recent .NET versions or manually handle stream.
-            
-            // For simple refactoring without breaking 'using' mechanics on readers, 
-            // we will use the SerialPort direct methods or non-closing wrappers.
-            // Actually, SerialPort.WriteLine / ReadLine are available but synchronous.
-            // We need Async.
-            
-            // Allow stream wrappers to NOT close the underlying stream
-            using var streamWrapper = new NonClosingStreamWrapper(serial.BaseStream);
-            using var writer = new StreamWriter(streamWrapper, Utf8NoBom) { AutoFlush = true };
-            using var reader = new StreamReader(streamWrapper, Utf8NoBom);
-
             Log.Information("Serial send {Command}", command.Split(' ')[0]);
             trace.AppendLine("write: ok");
-            await writer.WriteLineAsync(command);
+            serial.WriteLine(command);
 
-            var line = await ReadResponseLineAsync(reader, timeout, trace, token);
+            var line = await ReadResponseLineAsync(serial, timeout, trace, token);
             if (line == null)
             {
                 // Check for boot messages if we just connected or if device reset
@@ -598,8 +684,8 @@ public class SerialService : IDisposable
                 {
                     trace.AppendLine("retry: boot_detected_resend");
                     await Task.Delay(250, token);
-                    await writer.WriteLineAsync(command);
-                    line = await ReadResponseLineAsync(reader, TimeSpan.FromSeconds(3), trace, token);
+                    serial.WriteLine(command);
+                    line = await ReadResponseLineAsync(serial, TimeSpan.FromSeconds(3), trace, token);
                 }
             }
 
@@ -634,6 +720,23 @@ public class SerialService : IDisposable
         catch (OperationCanceledException)
         {
             trace.AppendLine("error: cancelled");
+            await AppendSerialTraceAsync(trace);
+            throw;
+        }
+        catch (TimeoutException ex)
+        {
+            // Timeout is often transient during boot logs; keep port open to avoid
+            // triggering extra resets by close/open cycles on next probe.
+            Log.Warning(ex, "Serial command timeout");
+            trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
+            await AppendSerialTraceAsync(trace);
+            throw;
+        }
+        catch (SerialCommandException ex)
+        {
+            // Protocol-level error; keep port open for subsequent retry/commands.
+            Log.Warning(ex, "Serial command protocol error");
+            trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
             throw;
         }
@@ -789,31 +892,42 @@ public class SerialService : IDisposable
         public override Task FlushAsync(CancellationToken cancellationToken) => _base.FlushAsync(cancellationToken);
     }
 
-    private async Task<string?> ReadLineAsync(StreamReader reader, TimeSpan timeout, CancellationToken token)
+    private async Task<string?> ReadLineAsync(SerialPort serial, TimeSpan timeout, CancellationToken token)
     {
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-        cts.CancelAfter(timeout);
+        var deadline = DateTime.UtcNow + timeout;
+        var originalReadTimeout = serial.ReadTimeout;
         try
         {
-            return await reader.ReadLineAsync().WaitAsync(cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            if (token.IsCancellationRequested)
+            while (DateTime.UtcNow < deadline)
             {
-                throw;
+                token.ThrowIfCancellationRequested();
+                var remainingMs = (int)Math.Clamp((deadline - DateTime.UtcNow).TotalMilliseconds, 1, 300);
+                serial.ReadTimeout = remainingMs;
+                try
+                {
+                    return await Task.Run(serial.ReadLine, token);
+                }
+                catch (TimeoutException)
+                {
+                    // continue until deadline
+                }
             }
+
             return null;
+        }
+        finally
+        {
+            serial.ReadTimeout = originalReadTimeout;
         }
     }
 
-    private async Task<string?> ReadResponseLineAsync(StreamReader reader, TimeSpan timeout, StringBuilder trace, CancellationToken token)
+    private async Task<string?> ReadResponseLineAsync(SerialPort serial, TimeSpan timeout, StringBuilder trace, CancellationToken token)
     {
         var deadline = DateTime.UtcNow + timeout;
         while (DateTime.UtcNow < deadline)
         {
             var remaining = deadline - DateTime.UtcNow;
-            var line = await ReadLineAsync(reader, remaining, token);
+            var line = await ReadLineAsync(serial, remaining, token);
             if (line == null)
             {
                 return null;
@@ -880,20 +994,48 @@ public class SerialService : IDisposable
         return map;
     }
 
-    private static int ScorePort(string? description)
+    private static int ScorePort(string portName, string? description)
     {
-        if (string.IsNullOrWhiteSpace(description))
+        var score = 0;
+        var comNo = ParseComNumber(portName);
+
+        // Prefer typical USB serial adapters over legacy motherboard ports.
+        if (comNo >= 3) score += 2;
+        if (comNo >= 5) score += 1;
+        if (comNo == 1) score -= 4;
+
+        if (!string.IsNullOrWhiteSpace(description))
+        {
+            var desc = description.ToLowerInvariant();
+            if (desc.Contains("cp210")) score += 7;
+            if (desc.Contains("silicon labs")) score += 6;
+            if (desc.Contains("usb serial")) score += 5;
+            if (desc.Contains("usb-serial")) score += 5;
+            if (desc.Contains("ch340")) score += 5;
+            if (desc.Contains("ch910")) score += 5;
+            if (desc.Contains("ftdi")) score += 5;
+            if (desc.Contains("m5stack")) score += 6;
+            if (desc.Contains("bluetooth")) score -= 5;
+            if (desc.Contains("communications port")) score -= 3;
+            if (desc.Contains("standard serial")) score -= 2;
+        }
+
+        return score;
+    }
+
+    private static int ParseComNumber(string? portName)
+    {
+        if (string.IsNullOrWhiteSpace(portName))
         {
             return 0;
         }
 
-        var desc = description.ToLowerInvariant();
-        var score = 0;
-        if (desc.Contains("cp210")) score += 5;
-        if (desc.Contains("silicon labs")) score += 4;
-        if (desc.Contains("usb-serial")) score += 3;
-        if (desc.Contains("ch340")) score += 2;
-        return score;
+        if (!portName.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        return int.TryParse(portName[3..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : 0;
     }
 
     private static ConfigResult ParseOkResult(string response, string prefix)
@@ -919,7 +1061,7 @@ public class SerialService : IDisposable
         }
         catch
         {
-            return new ConfigResult { Success = false, Message = "結果JSONが解析できません" };
+            return new ConfigResult { Success = false, Message = "結果JSONを解析できません" };
         }
     }
 
@@ -944,7 +1086,7 @@ public class SerialService : IDisposable
         }
         catch
         {
-            return new DeviceTestResult { Success = false, Message = "結果JSONが解析できません" };
+            return new DeviceTestResult { Success = false, Message = "結果JSONを解析できません" };
         }
     }
 
@@ -963,7 +1105,7 @@ public class SerialService : IDisposable
         }
         catch (SerialCommandException ex)
         {
-            return new ConfigResult { Success = false, Message = $"設定失敗({key}): {ex.Reason}" };
+            return new ConfigResult { Success = false, Message = $"設定失敗 ({key}): {ex.Reason}" };
         }
         catch (TimeoutException ex)
         {
@@ -1018,3 +1160,4 @@ public class SerialService : IDisposable
     }
 
 }
+

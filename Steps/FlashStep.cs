@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,7 +31,7 @@ public sealed class FlashStep : StepBase
 
         if (string.IsNullOrWhiteSpace(vm.FirmwarePath) || !File.Exists(vm.FirmwarePath))
         {
-            vm.ErrorMessage = "ファームウェアstackchan_core2_public.binがありません";
+            vm.ErrorMessage = "ファームウェア stackchan_core2_public.bin が見つかりません";
             return StepResult.Fail("ファームウェアが見つかりません", canRetry: false);
         }
 
@@ -41,12 +41,12 @@ public sealed class FlashStep : StepBase
             !fwName.Contains("_public", StringComparison.OrdinalIgnoreCase))
         {
             vm.ErrorMessage = "_public を含む .bin のみ対応しています";
-            return StepResult.Fail("ファームウェアが無効です", canRetry: false);
+            return StepResult.Fail("ファームウェア形式が不正です", canRetry: false);
         }
 
         if (!int.TryParse(vm.FlashBaud, out var baud))
         {
-            return StepResult.Fail("Baudが不正です", canRetry: false);
+            return StepResult.Fail("Baud が数値ではありません", canRetry: false);
         }
 
         var erase = vm.FlashModeErase;
@@ -56,9 +56,7 @@ public sealed class FlashStep : StepBase
 
         try
         {
-            // Must ensure serial port is closed before calling esptool/espflash
             context.SerialService.Close();
-            // Give the OS driver a short settle window before opening the same COM port again.
             await Task.Delay(300, token);
 
             var result = await context.RetryPolicy.ExecuteWithTimeoutAsync(
@@ -78,7 +76,7 @@ public sealed class FlashStep : StepBase
             }
 
             vm.FlashStatus = "書き込み失敗";
-            vm.ErrorMessage = $"書き込みに失敗しました。ログ: {result.LogPath}";
+            vm.ErrorMessage = $"書き込みに失敗しました（ポート: {vm.SelectedPort.PortName}）。接続手順に戻ってポートを確認してください。ログ: {result.LogPath}";
             vm.PrimaryButtonText = "再試行";
             return StepResult.Fail("書き込みに失敗しました", guidance: "書き込みログを確認してください。", canRetry: true);
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -37,6 +37,7 @@ public class MainViewModel : BindableBase
     private int _totalSteps;
     private int _step = 1;
     private string _stepTitle = "接続";
+    private string _stepDescription = "";
     private string _primaryButtonText = "探す";
     private bool _isBusy;
     private string _statusMessage = "";
@@ -174,9 +175,12 @@ public class MainViewModel : BindableBase
                 BackCommand.RaiseCanExecuteChanged();
                 SkipCommand.RaiseCanExecuteChanged();
                 RaisePropertyChanged(nameof(StepIndicator));
+                RaisePropertyChanged(nameof(StepProgressPercent));
+                RaisePropertyChanged(nameof(InputStatusText));
                 RaisePropertyChanged(nameof(IsNotFirstStep));
                 RaisePropertyChanged(nameof(IsCompleteStep));
                 RaisePropertyChanged(nameof(IsNotCompleteStep));
+                RaisePropertyChanged(nameof(BackButtonText));
             }
         }
     }
@@ -187,7 +191,24 @@ public class MainViewModel : BindableBase
         set => SetProperty(ref _stepTitle, value);
     }
 
+    public string StepDescription
+    {
+        get => _stepDescription;
+        set => SetProperty(ref _stepDescription, value);
+    }
+
     public string StepIndicator => $"{Step}/{_totalSteps}";
+    public double StepProgressPercent => _totalSteps <= 1 ? 0 : ((double)(Step - 1) / (_totalSteps - 1)) * 100;
+    public string BackButtonText => $"前の手順（{GetStepLabel(Step - 1)}）に戻る";
+    public string AbortButtonText => "ここまでの設定を保存して終了";
+    public string InputStatusText
+    {
+        get
+        {
+            var (filled, missing) = CalculateInputStatus();
+            return $"入力済み: {filled} / 未入力: {missing}";
+        }
+    }
 
     public string PrimaryButtonText
     {
@@ -249,7 +270,13 @@ public class MainViewModel : BindableBase
     public SerialPortInfo? SelectedPort
     {
         get => _selectedPort;
-        set => SetProperty(ref _selectedPort, value);
+        set
+        {
+            if (SetProperty(ref _selectedPort, value))
+            {
+                RaisePropertyChanged(nameof(InputStatusText));
+            }
+        }
     }
 
     public string FirmwarePath
@@ -385,13 +412,25 @@ public class MainViewModel : BindableBase
     public string ConfigWifiSsid
     {
         get => _configWifiSsid;
-        set => SetProperty(ref _configWifiSsid, value);
+        set
+        {
+            if (SetProperty(ref _configWifiSsid, value))
+            {
+                RaisePropertyChanged(nameof(InputStatusText));
+            }
+        }
     }
 
     public string ConfigWifiPassword
     {
         get => _configWifiPassword;
-        set => SetProperty(ref _configWifiPassword, value);
+        set
+        {
+            if (SetProperty(ref _configWifiPassword, value))
+            {
+                RaisePropertyChanged(nameof(InputStatusText));
+            }
+        }
     }
 
     public bool WifiPasswordStored
@@ -407,6 +446,7 @@ public class MainViewModel : BindableBase
                 }
 
                 RaisePropertyChanged(nameof(CanReuseWifiPassword));
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -419,6 +459,7 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _reuseWifiPassword, value))
             {
                 RaisePropertyChanged(nameof(CanEditWifiPassword));
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -441,6 +482,7 @@ public class MainViewModel : BindableBase
 
                 RaisePropertyChanged(nameof(FeatureToggleChildrenEnabled));
                 RaiseApiValidationStateChanged();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -455,6 +497,7 @@ public class MainViewModel : BindableBase
                 RaisePropertyChanged(nameof(IsMiningDisabled));
                 RaisePropertyChanged(nameof(MiningModeSummary));
                 RaiseApiValidationStateChanged();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -467,6 +510,7 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _aiEnabled, value))
             {
                 RaiseApiValidationStateChanged();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -478,13 +522,25 @@ public class MainViewModel : BindableBase
     public string DucoUser
     {
         get => _ducoUser;
-        set => SetProperty(ref _ducoUser, value);
+        set
+        {
+            if (SetProperty(ref _ducoUser, value))
+            {
+                RaisePropertyChanged(nameof(InputStatusText));
+            }
+        }
     }
 
     public string DucoMinerKey
     {
         get => _ducoMinerKey;
-        set => SetProperty(ref _ducoMinerKey, value);
+        set
+        {
+            if (SetProperty(ref _ducoMinerKey, value))
+            {
+                RaisePropertyChanged(nameof(InputStatusText));
+            }
+        }
     }
 
     public bool DucoKeyStored
@@ -500,6 +556,7 @@ public class MainViewModel : BindableBase
                 }
 
                 RaisePropertyChanged(nameof(CanReuseDucoMinerKey));
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -512,6 +569,7 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _reuseDucoMinerKey, value))
             {
                 RaisePropertyChanged(nameof(CanEditDucoMinerKey));
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -532,6 +590,7 @@ public class MainViewModel : BindableBase
                 ApiTestSummary = "未実行";
                 ApiTestSummaryBrush = new SolidColorBrush(Color.FromRgb(0x6B, 0x72, 0x80));
                 ApiTestSummaryBackground = new SolidColorBrush(Color.FromRgb(0xF3, 0xF4, 0xF6));
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -551,6 +610,7 @@ public class MainViewModel : BindableBase
                 RaisePropertyChanged(nameof(CanReuseOpenAiKey));
                 RaiseApiValidationStateChanged();
                 RefreshApiValidationSummaries();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -567,6 +627,7 @@ public class MainViewModel : BindableBase
                 RaisePropertyChanged(nameof(CanEditOpenAiKey));
                 RaiseApiValidationStateChanged();
                 RefreshApiValidationSummaries();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -657,8 +718,16 @@ public class MainViewModel : BindableBase
     public string MaskedOpenAiKey
     {
         get => _maskedOpenAiKey;
-        set => SetProperty(ref _maskedOpenAiKey, value);
+        set
+        {
+            if (SetProperty(ref _maskedOpenAiKey, value))
+            {
+                RaisePropertyChanged(nameof(HasMaskedOpenAiKey));
+            }
+        }
     }
+
+    public bool HasMaskedOpenAiKey => !string.IsNullOrWhiteSpace(MaskedOpenAiKey);
 
     public bool SaveToPc
     {
@@ -675,6 +744,7 @@ public class MainViewModel : BindableBase
             {
                 AzureKeyStored = !string.IsNullOrWhiteSpace(value);
                 ResetAzureTestState();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -694,6 +764,7 @@ public class MainViewModel : BindableBase
                 RaisePropertyChanged(nameof(CanReuseAzureKey));
                 RaiseApiValidationStateChanged();
                 RefreshApiValidationSummaries();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -709,6 +780,7 @@ public class MainViewModel : BindableBase
                 RaisePropertyChanged(nameof(CanEditAzureKey));
                 RaiseApiValidationStateChanged();
                 RefreshApiValidationSummaries();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -731,6 +803,7 @@ public class MainViewModel : BindableBase
             if (SetProperty(ref _azureRegion, value))
             {
                 ResetAzureTestState();
+                RaisePropertyChanged(nameof(InputStatusText));
             }
         }
     }
@@ -1495,6 +1568,9 @@ public class MainViewModel : BindableBase
         var miningEnabled = wifiEnabled && MiningEnabled;
         var aiEnabled = wifiEnabled && AiEnabled;
 
+        var ducoUserToSend = miningEnabled ? DucoUser : string.Empty;
+        var ducoKeyToSend = miningEnabled ? ((ReuseDucoMinerKey && DucoKeyStored) ? "" : DucoMinerKey) : string.Empty;
+
         return new DeviceConfig
         {
             WifiEnabled = wifiEnabled,
@@ -1502,8 +1578,8 @@ public class MainViewModel : BindableBase
             AiEnabled = aiEnabled,
             WifiSsid = ConfigWifiSsid,
             WifiPassword = (ReuseWifiPassword && WifiPasswordStored) ? "" : ConfigWifiPassword,
-            DucoUser = DucoUser,
-            DucoMinerKey = (ReuseDucoMinerKey && DucoKeyStored) ? "" : DucoMinerKey,
+            DucoUser = ducoUserToSend,
+            DucoMinerKey = ducoKeyToSend,
             OpenAiKey = (ReuseOpenAiKey && OpenAiKeyStored) ? "" : ConfigOpenAiKey,
             OpenAiModel = ConfigOpenAiModel,
             OpenAiInstructions = ConfigOpenAiInstructions,
@@ -1534,10 +1610,18 @@ public class MainViewModel : BindableBase
             {
                 ConfigWifiSsid = ssid;
             }
-            if (TryGetBool(root, "wifi_pass_set", out var wifiPassSet))
+            var hasWifiPassSet =
+                TryGetBool(root, "wifi_pass_set", out var wifiPassSet) ||
+                TryGetBool(root, "wifi_password_set", out wifiPassSet);
+            if (hasWifiPassSet)
             {
                 WifiPasswordStored = wifiPassSet;
                 ReuseWifiPassword = wifiPassSet;
+            }
+            else if (TryGetString(root, "wifi_pass", out var wifiPassRaw) && !string.IsNullOrWhiteSpace(wifiPassRaw))
+            {
+                WifiPasswordStored = true;
+                ReuseWifiPassword = true;
             }
 
             if (TryGetBool(root, "wifi_enabled", out var wifiEnabled))
@@ -1557,13 +1641,23 @@ public class MainViewModel : BindableBase
             {
                 DucoUser = ducoUser;
             }
-            if (TryGetBool(root, "duco_key_set", out var ducoKeySet))
+            var hasDucoKeySet =
+                TryGetBool(root, "duco_key_set", out var ducoKeySet) ||
+                TryGetBool(root, "duco_miner_key_set", out ducoKeySet);
+            if (hasDucoKeySet)
             {
                 DucoKeyStored = ducoKeySet;
                 ReuseDucoMinerKey = ducoKeySet;
             }
+            else if (TryGetString(root, "duco_miner_key", out var ducoKeyRaw) && !string.IsNullOrWhiteSpace(ducoKeyRaw))
+            {
+                DucoKeyStored = true;
+                ReuseDucoMinerKey = true;
+            }
 
-            if (TryGetString(root, "az_region", out var azRegion) && !string.IsNullOrWhiteSpace(azRegion))
+            if ((TryGetString(root, "az_region", out var azRegion) ||
+                 TryGetString(root, "az_speech_region", out azRegion)) &&
+                !string.IsNullOrWhiteSpace(azRegion))
             {
                 AzureRegion = azRegion;
             }
@@ -1575,10 +1669,18 @@ public class MainViewModel : BindableBase
             {
                 AzureCustomSubdomain = azEndpoint;
             }
-            if (TryGetBool(root, "az_key_set", out var azKeySet))
+            var hasAzKeySet =
+                TryGetBool(root, "az_key_set", out var azKeySet) ||
+                TryGetBool(root, "az_speech_key_set", out azKeySet);
+            if (hasAzKeySet)
             {
                 AzureKeyStored = azKeySet;
                 ReuseAzureKey = azKeySet;
+            }
+            else if (TryGetString(root, "az_speech_key", out var azKeyRaw) && !string.IsNullOrWhiteSpace(azKeyRaw))
+            {
+                AzureKeyStored = true;
+                ReuseAzureKey = true;
             }
 
             if (TryGetString(root, "openai_model", out var openAiModel) && !string.IsNullOrWhiteSpace(openAiModel))
@@ -1589,16 +1691,25 @@ public class MainViewModel : BindableBase
             {
                 ConfigOpenAiInstructions = openAiInstructions;
             }
-            if (TryGetBool(root, "openai_key_set", out var openAiKeySet) && openAiKeySet && string.IsNullOrWhiteSpace(ConfigOpenAiKey))
+            var hasOpenAiKeySet =
+                TryGetBool(root, "openai_key_set", out var openAiKeySet) ||
+                TryGetBool(root, "openai_api_key_set", out openAiKeySet);
+            if (hasOpenAiKeySet && openAiKeySet && string.IsNullOrWhiteSpace(ConfigOpenAiKey))
             {
                 OpenAiKeyStored = true;
                 ReuseOpenAiKey = true;
                 MaskedOpenAiKey = "(保存済み)";
             }
-            else if (TryGetBool(root, "openai_key_set", out openAiKeySet))
+            else if (hasOpenAiKeySet)
             {
                 OpenAiKeyStored = openAiKeySet;
                 ReuseOpenAiKey = openAiKeySet;
+            }
+            else if (TryGetString(root, "openai_key", out var openAiKeyRaw) && !string.IsNullOrWhiteSpace(openAiKeyRaw))
+            {
+                OpenAiKeyStored = true;
+                ReuseOpenAiKey = true;
+                MaskedOpenAiKey = "(保存済み)";
             }
 
             if (TryGetInt(root, "display_sleep_s", out var displaySleepSeconds))
@@ -1916,6 +2027,61 @@ public class MainViewModel : BindableBase
         }
 
         return _openAiModelOptions[0];
+    }
+
+    private (int Filled, int Missing) CalculateInputStatus()
+    {
+        var filled = 0;
+        var missing = 0;
+
+        void Count(bool ok)
+        {
+            if (ok) filled++;
+            else missing++;
+        }
+
+        Count(SelectedPort != null);
+
+        if (WifiEnabled)
+        {
+            Count(!string.IsNullOrWhiteSpace(ConfigWifiSsid));
+            Count((ReuseWifiPassword && WifiPasswordStored) || !string.IsNullOrWhiteSpace(ConfigWifiPassword));
+
+            if (MiningEnabled)
+            {
+                Count(!string.IsNullOrWhiteSpace(DucoUser));
+            }
+
+            if (MiningEnabled || AiEnabled)
+            {
+                Count(!string.IsNullOrWhiteSpace(AzureRegion));
+                Count((ReuseAzureKey && AzureKeyStored) || !string.IsNullOrWhiteSpace(AzureKey));
+            }
+
+            if (AiEnabled)
+            {
+                Count((ReuseOpenAiKey && OpenAiKeyStored) || !string.IsNullOrWhiteSpace(ConfigOpenAiKey));
+            }
+        }
+
+        return (filled, missing);
+    }
+
+    private string GetStepLabel(int step)
+    {
+        return step switch
+        {
+            1 => "接続",
+            2 => "書き込み",
+            3 => "機能ON/OFF",
+            4 => "Wi-Fi設定",
+            5 => "Duino-coin設定",
+            6 => "Azure設定",
+            7 => "OpenAI API設定",
+            8 => "追加設定",
+            9 => "実行",
+            _ => "手順"
+        };
     }
 
 }

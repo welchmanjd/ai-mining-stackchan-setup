@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media;
@@ -10,9 +11,9 @@ namespace AiStackchanSetup.Steps;
 public sealed class RuntimeSettingsStep : StepBase
 {
     public override int Index => 9;
-    public override string Title => "書き込み";
-    public override string Description => "APIキー確認と設定書き込みを実行します。";
-    public override string PrimaryActionText => "書き込み";
+    public override string Title => "設定保存";
+    public override string Description => "APIキー確認と設定保存を実行します。";
+    public override string PrimaryActionText => "設定保存";
 
     public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
@@ -33,7 +34,7 @@ public sealed class RuntimeSettingsStep : StepBase
         }
 
         vm.IsBusy = true;
-        vm.StatusMessage = "最終確認中...";
+        vm.StatusMessage = "事前確認中...";
         vm.ErrorMessage = "";
 
         try
@@ -68,12 +69,12 @@ public sealed class RuntimeSettingsStep : StepBase
 
                 if (openAiResult.Success)
                 {
-                    SetSummaryOk(vm, openAi: true, "有効確認に成功");
+                    SetSummaryOk(vm, openAi: true, "事前確認に成功");
                     openAiOk = true;
                 }
                 else
                 {
-                    SetSummaryNg(vm, openAi: true, $"有効確認に失敗: {openAiResult.Message}");
+                    SetSummaryNg(vm, openAi: true, $"事前確認に失敗: {openAiResult.Message}");
                 }
             }
 
@@ -98,23 +99,28 @@ public sealed class RuntimeSettingsStep : StepBase
 
                 if (azureResult.Success)
                 {
-                    SetSummaryOk(vm, openAi: false, "有効確認に成功");
+                    SetSummaryOk(vm, openAi: false, "事前確認に成功");
                     azureOk = true;
                 }
                 else
                 {
-                    SetSummaryNg(vm, openAi: false, $"有効確認に失敗: {azureResult.Message}");
+                    SetSummaryNg(vm, openAi: false, $"事前確認に失敗: {azureResult.Message}");
                 }
             }
 
             if (!openAiOk || !azureOk)
             {
                 vm.StatusMessage = "APIキー確認に失敗しました";
-                return StepResult.Fail("APIキー確認に失敗しました。設定を確認してください。", canRetry: true);
+                return StepResult.Fail("APIキー確認に失敗しました。設定を見直して再試行してください。", canRetry: true);
             }
 
             vm.StatusMessage = "設定を送信中...";
             var config = vm.BuildDeviceConfig();
+            Serilog.Log.Information(
+                "Config send flags wifi_enabled={Wifi} mining_enabled={Mining} ai_enabled={Ai}",
+                config.WifiEnabled,
+                config.MiningEnabled,
+                config.AiEnabled);
             var setResult = await context.RetryPolicy.ExecuteWithTimeoutAsync(
                 ct => context.SerialService.SendConfigAsync(vm.SelectedPort.PortName, config, ct),
                 context.Timeouts.SendConfig,
@@ -152,6 +158,76 @@ public sealed class RuntimeSettingsStep : StepBase
                 return StepResult.Fail($"設定保存に失敗しました: {applyResult.Message}");
             }
 
+            // Read-back verify: ensure feature flags (especially mining OFF) are truly persisted.
+            async Task<(bool ok, bool? miningEnabled, string reason)> VerifyFlagsAsync()
+            {
+                var cfg = await context.SerialService.GetConfigJsonAsync(vm.SelectedPort.PortName, token);
+                if (!cfg.Success || string.IsNullOrWhiteSpace(cfg.Json))
+                {
+                    return (false, null, cfg.Message);
+                }
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(cfg.Json);
+                    var root = doc.RootElement;
+                    bool? miningValue = null;
+                    if (root.TryGetProperty("mining_enabled", out var m))
+                    {
+                        if (m.ValueKind == JsonValueKind.True || m.ValueKind == JsonValueKind.False)
+                        {
+                            miningValue = m.GetBoolean();
+                        }
+                        else if (m.ValueKind == JsonValueKind.Number && m.TryGetInt32(out var n))
+                        {
+                            miningValue = n != 0;
+                        }
+                        else if (m.ValueKind == JsonValueKind.String)
+                        {
+                            var s = m.GetString();
+                            if (s == "1" || string.Equals(s, "true", StringComparison.OrdinalIgnoreCase)) miningValue = true;
+                            if (s == "0" || string.Equals(s, "false", StringComparison.OrdinalIgnoreCase)) miningValue = false;
+                        }
+                    }
+
+                    var expectedMining = vm.WifiEnabled && vm.MiningEnabled;
+                    if (miningValue.HasValue && miningValue.Value != expectedMining)
+                    {
+                        return (false, miningValue, $"mining_enabled mismatch (expected={expectedMining}, actual={miningValue.Value})");
+                    }
+
+                    return (true, miningValue, "OK");
+                }
+                catch (Exception ex)
+                {
+                    return (false, null, ex.Message);
+                }
+            }
+
+            var verify = await VerifyFlagsAsync();
+            if (!verify.ok)
+            {
+                // Retry one more time with the same config if persisted flags differ.
+                vm.StatusMessage = "設定を再確認中...";
+                var retrySet = await context.SerialService.SendConfigAsync(vm.SelectedPort.PortName, config, token);
+                if (!retrySet.Success)
+                {
+                    return StepResult.Fail($"設定反映確認に失敗しました: {verify.reason}", canRetry: true);
+                }
+
+                var retryApply = await context.SerialService.ApplyConfigAsync(vm.SelectedPort.PortName, token);
+                if (!retryApply.Success)
+                {
+                    return StepResult.Fail($"設定反映確認に失敗しました: {verify.reason}", canRetry: true);
+                }
+
+                var verify2 = await VerifyFlagsAsync();
+                if (!verify2.ok)
+                {
+                    return StepResult.Fail($"設定反映確認に失敗しました: {verify2.reason}", canRetry: true);
+                }
+            }
+
             if (vm.CaptureSerialLogAfterReboot)
             {
                 const int captureSeconds = 60;
@@ -164,7 +240,7 @@ public sealed class RuntimeSettingsStep : StepBase
 
                     for (var elapsed = 0; elapsed < captureSeconds; elapsed++)
                     {
-                        vm.StatusMessage = $"60秒間ログを取ります。{elapsed + 1}秒";
+                        vm.StatusMessage = $"60秒ログを取得します... ({elapsed + 1}秒)";
                         var completed = await Task.WhenAny(captureTask, Task.Delay(1000, token)) == captureTask;
                         if (completed)
                         {
@@ -203,7 +279,7 @@ public sealed class RuntimeSettingsStep : StepBase
         }
         catch (OperationCanceledException)
         {
-            vm.StatusMessage = "中断しました";
+            vm.StatusMessage = "中止しました";
             return StepResult.Cancelled();
         }
         catch (TimeoutException ex)

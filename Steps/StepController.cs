@@ -35,6 +35,7 @@ public sealed class StepController
         var step = GetStep(_viewModel.Step);
         _current = step;
         _viewModel.StepTitle = step.Title;
+        _viewModel.StepDescription = step.Description;
         _viewModel.PrimaryButtonText = step.PrimaryActionText;
     }
 

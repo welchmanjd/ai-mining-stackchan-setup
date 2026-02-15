@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -21,7 +21,7 @@ public sealed class FeatureToggleStep : StepBase
 
         vm.IsBusy = true;
         vm.StatusMessage = "デバイス設定を読み込み中...";
-        vm.DeviceStatusSummary = "読込中";
+        vm.DeviceStatusSummary = "読み込み中";
         vm.DeviceInfoJson = "";
         vm.LastProtocolResponse = "";
 
@@ -77,7 +77,7 @@ public sealed class FeatureToggleStep : StepBase
                 token);
             if (cfg.Success && !string.IsNullOrWhiteSpace(cfg.Json))
             {
-                // Keep user's current toggle selections from Step 3.
+                // Keep user's ON/OFF selection from this screen.
                 var wifiEnabled = vm.WifiEnabled;
                 var miningEnabled = vm.MiningEnabled;
                 var aiEnabled = vm.AiEnabled;
@@ -92,7 +92,7 @@ public sealed class FeatureToggleStep : StepBase
         }
         catch (OperationCanceledException)
         {
-            vm.StatusMessage = "中断しました";
+            vm.StatusMessage = "中止しました";
             return StepResult.Cancelled();
         }
         catch (TimeoutException ex)

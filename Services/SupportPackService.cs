@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AiStackchanSetup.Models;
@@ -21,7 +22,11 @@ public class SupportPackService
         {
             using var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
 
-            var summaryJson = JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
+            var summaryJson = JsonSerializer.Serialize(summary, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
             {
                 var entry = zip.CreateEntry("summary.json");
                 await using var stream = entry.Open();

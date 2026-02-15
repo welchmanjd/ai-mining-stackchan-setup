@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Ports;
 using System.Security.Cryptography;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,23 +49,52 @@ public class FlashService
                 token);
         }
 
-        // Prefer esptool.py first for compatibility with older stable behavior.
-        if (IsEsptoolAvailable())
+        var hasEsptool = IsEsptoolAvailable();
+        FlashResult? lastEsptoolResult = null;
+
+        // Try esptool with safer connection profiles first.
+        if (hasEsptool)
         {
+            var baudCandidates = new[] { baud, 460800, 115200 }.Distinct().ToArray();
+
             if (erase)
             {
-                var eraseResult = await RunEsptoolAsync($"--chip esp32 --port {portName} --baud {baud} erase_flash", portName, baud, erase, firmwarePath, token);
-                if (!eraseResult.Success)
+                foreach (var eraseBaud in baudCandidates)
                 {
-                    eraseResult.Message = "erase_flash 失敗";
-                    return eraseResult;
+                    var eraseArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud {eraseBaud} erase_flash";
+                    var eraseResult = await RunEsptoolAsync(eraseArgs, portName, eraseBaud, erase, firmwarePath, token);
+                    lastEsptoolResult = eraseResult;
+                    if (eraseResult.Success)
+                    {
+                        break;
+                    }
                 }
             }
 
-            var argsPrimary = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
-            var esptoolPrimary = await RunEsptoolAsync(argsPrimary, portName, baud, erase, firmwarePath, token);
-            esptoolPrimary.Message = esptoolPrimary.Success ? "書き込み成功 (esptool)" : "書き込み失敗 (esptool)";
-            return esptoolPrimary;
+            if (lastEsptoolResult == null || lastEsptoolResult.Success)
+            {
+                foreach (var writeBaud in baudCandidates)
+                {
+                    var writeArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud {writeBaud} write_flash -z 0x0 \"{firmwarePath}\"";
+                    var writeResult = await RunEsptoolAsync(writeArgs, portName, writeBaud, erase, firmwarePath, token);
+                    lastEsptoolResult = writeResult;
+                    if (writeResult.Success)
+                    {
+                        writeResult.Message = "書き込み成功 (esptool)";
+                        return writeResult;
+                    }
+
+                    // Some adapters connect more reliably with --no-stub.
+                    var noStubArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud {writeBaud} --no-stub write_flash -z 0x0 \"{firmwarePath}\"";
+                    writeResult = await RunEsptoolAsync(noStubArgs, portName, writeBaud, erase, firmwarePath, token);
+                    lastEsptoolResult = writeResult;
+                    if (writeResult.Success)
+                    {
+                        writeResult.Message = "書き込み成功 (esptool --no-stub)";
+                        return writeResult;
+                    }
+                }
+            }
         }
 
         // Try to use bundled espflash first
@@ -79,10 +109,10 @@ public class FlashService
                 var eraseResult = await RunToolAsync(espFlashPath, eraseArgs, "espflash", portName, baud, erase, firmwarePath, token);
                 if (!eraseResult.Success)
                 {
-                    if (IsEsptoolAvailable())
+                    if (hasEsptool)
                     {
                         Log.Warning("espflash erase failed. Falling back to esptool.py erase_flash");
-                        var eraseFallback = await RunEsptoolAsync($"--chip esp32 --port {portName} --baud {baud} erase_flash", portName, baud, erase, firmwarePath, token);
+                        var eraseFallback = await RunEsptoolAsync($"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud 115200 erase_flash", portName, 115200, erase, firmwarePath, token);
                         if (!eraseFallback.Success)
                         {
                             eraseFallback.Message = "erase_flash 失敗 (espflash + esptool)";
@@ -120,11 +150,11 @@ public class FlashService
                     return result;
                 }
 
-                if (IsEsptoolAvailable())
+                if (hasEsptool)
                 {
                     Log.Warning("espflash failed. Falling back to esptool.py");
-                    var fallbackArgs = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
-                    var fallback = await RunEsptoolAsync(fallbackArgs, portName, baud, erase, firmwarePath, token);
+                    var fallbackArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud 115200 --no-stub write_flash -z 0x0 \"{firmwarePath}\"";
+                    var fallback = await RunEsptoolAsync(fallbackArgs, portName, 115200, erase, firmwarePath, token);
                     fallback.Message = fallback.Success ? "書き込み成功 (esptool fallback)" : "書き込み失敗 (espflash + esptool)";
                     return fallback;
                 }
@@ -133,11 +163,11 @@ public class FlashService
                 return result;
             }
 
-            if (IsEsptoolAvailable())
+            if (hasEsptool)
             {
                 Log.Warning("Skipping espflash write due to prior espflash failure. Using esptool.py directly.");
-                var fallbackArgs = $"--chip esp32 --port {portName} --baud {baud} write_flash -z 0x0 \"{firmwarePath}\"";
-                var fallback = await RunEsptoolAsync(fallbackArgs, portName, baud, erase, firmwarePath, token);
+                var fallbackArgs = $"--before default_reset --after hard_reset --chip esp32 --port {portName} --baud 115200 --no-stub write_flash -z 0x0 \"{firmwarePath}\"";
+                var fallback = await RunEsptoolAsync(fallbackArgs, portName, 115200, erase, firmwarePath, token);
                 fallback.Message = fallback.Success ? "書き込み成功 (esptool direct)" : "書き込み失敗 (esptool direct)";
                 return fallback;
             }
@@ -150,6 +180,16 @@ public class FlashService
                 erase,
                 firmwarePath,
                 token);
+        }
+
+        if (lastEsptoolResult != null)
+        {
+            if (lastEsptoolResult.Message.Contains("No serial data received", StringComparison.OrdinalIgnoreCase))
+            {
+                lastEsptoolResult.Message = "ESP32に接続できません。USBケーブル(データ通信対応)を確認し、M5Stackを再起動して再試行してください。";
+            }
+
+            return lastEsptoolResult;
         }
 
         return await FailWithLogAsync(
@@ -190,6 +230,8 @@ public class FlashService
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
+            await TryEnterBootloaderAsync(portName, output, token);
 
             process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             process.Start();
@@ -276,14 +318,14 @@ public class FlashService
             output.AppendLine($"esptool.py: {esptoolPyPath ?? "not found"}");
             if (string.IsNullOrWhiteSpace(pythonPath) || string.IsNullOrWhiteSpace(esptoolPyPath))
             {
-                var message = "PlatformIO の Python / esptool.py が見つかりません。開発環境の PlatformIO を確認してください。";
-                output.AppendLine(message);
+                var missingToolsMessage = "PlatformIO の Python / esptool.py が見つかりません。開発環境の PlatformIO を確認してください。";
+                output.AppendLine(missingToolsMessage);
                 await File.WriteAllTextAsync(logPath, output.ToString(), token);
                 return new FlashResult
                 {
                     Success = false,
                     ExitCode = -1,
-                    Message = message,
+                    Message = missingToolsMessage,
                     LogPath = logPath
                 };
             }
@@ -297,6 +339,8 @@ public class FlashService
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
+            await TryEnterBootloaderAsync(portName, output, token);
 
             process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
             process.Start();
@@ -314,6 +358,21 @@ public class FlashService
             await File.WriteAllTextAsync(logPath, output.ToString(), token);
 
             var success = process.ExitCode == 0;
+            var combined = $"{stdoutTask.Result}\n{stderrTask.Result}";
+            var message = "OK";
+            if (combined.Contains("No serial data received.", StringComparison.OrdinalIgnoreCase))
+            {
+                message = "Failed to connect to ESP32: No serial data received.";
+            }
+            else if (!success && !string.IsNullOrWhiteSpace(stderrTask.Result))
+            {
+                message = stderrTask.Result.Trim();
+            }
+            else if (!success && !string.IsNullOrWhiteSpace(stdoutTask.Result))
+            {
+                message = stdoutTask.Result.Trim();
+            }
+
             if (!success)
             {
                 Log.Warning("esptool exit code {Code}", process.ExitCode);
@@ -323,6 +382,7 @@ public class FlashService
             {
                 Success = success,
                 ExitCode = process.ExitCode,
+                Message = message,
                 LogPath = logPath
             };
         }
@@ -426,6 +486,37 @@ public class FlashService
         if (baud != 115200)
         {
             await AppendCommandProbeAsync(output, exePath, $"board-info --non-interactive -c esp32 -p {portName} -B 115200", token);
+        }
+    }
+
+    private static async Task TryEnterBootloaderAsync(string portName, StringBuilder output, CancellationToken token)
+    {
+        try
+        {
+            using var serial = new SerialPort(portName, 115200)
+            {
+                ReadTimeout = 200,
+                WriteTimeout = 200,
+                Handshake = Handshake.None,
+                DtrEnable = false,
+                RtsEnable = false
+            };
+            serial.Open();
+
+            // Common ESP32 auto-program sequence via DTR/RTS.
+            serial.DtrEnable = true;   // IO0 low (on typical adapters)
+            serial.RtsEnable = true;   // EN low
+            await Task.Delay(120, token);
+            serial.RtsEnable = false;  // EN high
+            await Task.Delay(120, token);
+            serial.DtrEnable = false;  // IO0 high (normal run)
+            await Task.Delay(80, token);
+
+            output.AppendLine("bootloader_pulse: ok");
+        }
+        catch (Exception ex)
+        {
+            output.AppendLine($"bootloader_pulse: skipped ({ex.Message})");
         }
     }
 
