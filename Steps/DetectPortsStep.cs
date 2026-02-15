@@ -8,16 +8,15 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class DetectPortsStep : StepBase
 {
-    public override int Index => 1;
-    public override string Title => "接続";
-    public override string Description => "USBポートを検出します。";
-    public override string PrimaryActionText => "探す";
+    public DetectPortsStep() : base(StepDefinitions.DetectPorts)
+    {
+    }
 
     public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
         var vm = context.ViewModel;
         vm.IsBusy = true;
-        vm.StatusMessage = "USBポートを検出しています...";
+        vm.StatusMessage = StepMessages.PortDetectionInProgress;
         vm.Step1Help = "";
         vm.UpdateCurrentFirmwareInfo(null);
 
@@ -41,9 +40,9 @@ public sealed class DetectPortsStep : StepBase
             vm.SelectedPort = context.SerialService.SelectBestPort(vm.Ports);
             if (vm.SelectedPort == null)
             {
-                vm.Step1Help = "ポートが見つかりません。USBケーブルとドライバを確認してください。";
-                vm.StatusMessage = "未検出";
-                return StepResult.Fail("ポートが見つかりません", guidance: "USB接続とドライバを確認してください。", canRetry: true);
+                vm.Step1Help = StepMessages.PortNotFoundHelp;
+                vm.StatusMessage = StepMessages.PortNotDetected;
+                return StepResult.Fail(StepMessages.PortNotFound, guidance: StepMessages.UsbConnectionAndDriverGuidance, canRetry: true);
             }
 
             var infoTimeout = TimeSpan.FromMilliseconds(1200);
@@ -75,20 +74,21 @@ public sealed class DetectPortsStep : StepBase
 
             vm.UpdateCurrentFirmwareInfo(null);
             vm.IsManualPortSelection = true;
-            vm.Step1Help = "ファームウェア情報を取得できませんでした。接続先ポートを確認してください。";
+            vm.Step1Help = StepMessages.FirmwareInfoNotAvailableHelp;
             vm.StatusMessage = $"{vm.SelectedPort.DisplayName} を検出しました";
             return StepResult.Ok();
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
+            vm.StatusMessage = StepMessages.Cancelled;
             return StepResult.Cancelled();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Detect ports failed");
-            vm.ErrorMessage = "ポート検出に失敗しました";
+            vm.ErrorMessage = StepMessages.PortDetectionFailed;
             vm.LastError = ex.Message;
-            return StepResult.Fail("ポート検出に失敗しました", guidance: "USB接続とドライバを確認してください。");
+            return StepResult.Fail(StepMessages.PortDetectionFailed, guidance: StepMessages.UsbConnectionAndDriverGuidance);
         }
         finally
         {

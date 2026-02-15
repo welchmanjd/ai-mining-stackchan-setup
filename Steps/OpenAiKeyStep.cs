@@ -5,11 +5,9 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class OpenAiKeyStep : StepBase
 {
-    public override int Index => 7;
-    public override string Title => "OpenAIキー";
-    public override string Description => "OpenAI APIキーを設定します。";
-    public override string PrimaryActionText => "次へ";
-    public override bool CanRetry => false;
+    public OpenAiKeyStep() : base(StepDefinitions.OpenAiKey, canRetry: false)
+    {
+    }
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
@@ -23,7 +21,7 @@ public sealed class OpenAiKeyStep : StepBase
         var canReuseKey = vm.OpenAiKeyStored && vm.ReuseOpenAiKey;
         if (!hasKey && !canReuseKey)
         {
-            return Task.FromResult(StepResult.Fail("OpenAI APIキーが未入力です", canRetry: false));
+            return Task.FromResult(StepResult.Fail(StepMessages.OpenAiApiKeyRequired, canRetry: false));
         }
 
         return Task.FromResult(StepResult.Ok());

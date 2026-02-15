@@ -5,11 +5,9 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class AdditionalSettingsStep : StepBase
 {
-    public override int Index => 8;
-    public override string Title => "追加設定";
-    public override string Description => "追加設定を入力します。";
-    public override string PrimaryActionText => "次へ";
-    public override bool CanRetry => false;
+    public AdditionalSettingsStep() : base(StepDefinitions.AdditionalSettings, canRetry: false)
+    {
+    }
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {

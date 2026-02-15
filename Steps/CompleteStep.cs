@@ -6,11 +6,9 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class CompleteStep : StepBase
 {
-    public override int Index => 10;
-    public override string Title => "完了";
-    public override string Description => "セットアップが完了しました。";
-    public override string PrimaryActionText => "閉じる";
-    public override bool CanRetry => false;
+    public CompleteStep() : base(StepDefinitions.Complete, canRetry: false)
+    {
+    }
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {

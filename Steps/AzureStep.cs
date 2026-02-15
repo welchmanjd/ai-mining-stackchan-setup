@@ -5,11 +5,9 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class AzureStep : StepBase
 {
-    public override int Index => 6;
-    public override string Title => "Azure";
-    public override string Description => "Azure Speechを設定します。";
-    public override string PrimaryActionText => "次へ";
-    public override bool CanRetry => false;
+    public AzureStep() : base(StepDefinitions.Azure, canRetry: false)
+    {
+    }
 
     public override Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
@@ -22,14 +20,14 @@ public sealed class AzureStep : StepBase
 
         if (string.IsNullOrWhiteSpace(vm.AzureRegion))
         {
-            return Task.FromResult(StepResult.Fail("Azureリージョンが未入力です", canRetry: false));
+            return Task.FromResult(StepResult.Fail(StepMessages.AzureRegionRequired, canRetry: false));
         }
 
         var hasKey = !string.IsNullOrWhiteSpace(vm.AzureKey);
         var canReuseKey = vm.AzureKeyStored && vm.ReuseAzureKey;
         if (!hasKey && !canReuseKey)
         {
-            return Task.FromResult(StepResult.Fail("Azureキーが未入力です", canRetry: false));
+            return Task.FromResult(StepResult.Fail(StepMessages.AzureKeyRequired, canRetry: false));
         }
 
         return Task.FromResult(StepResult.Ok());

@@ -51,6 +51,21 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 ## 開発者向け
 
+### Step構成（責務分離）
+
+セットアップ手順は `Steps` 配下で、以下のように責務を分離しています。
+
+- `StepDefinitions.*.cs`
+  - 各Stepの `Index / Title / Description / PrimaryActionText` を定義
+- `StepMessages.*.cs`
+  - バリデーション文言、進捗文言、失敗/ガイダンス文言を分類して管理
+- `*Step.cs`
+  - 画面遷移単位のオーケストレーション（薄い制御）
+- `RuntimeSettingsWorkflow.cs`
+  - 設定保存Stepの実処理（API事前確認、送信/保存、反映確認、再起動ログ取得）
+- `RuntimeWorkflowResult.cs`
+  - ワークフロー処理結果の共通型
+
 ### ビルド
 
 ```powershell
@@ -65,6 +80,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_dist.ps1
 
 ## ライセンス
 
-このリポジトリのライセンスは、`ai-mining-stackchan-core2` と同等（MIT）を想定しています。
-
-公開前にこのリポジトリにも `LICENSE` ファイルを配置してください。
+MIT License（`ai-mining-stackchan-core2` と同等）です。詳細は `LICENSE` を参照してください。

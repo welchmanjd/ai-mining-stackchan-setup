@@ -8,31 +8,29 @@ namespace AiStackchanSetup.Steps;
 
 public sealed class FlashStep : StepBase
 {
-    public override int Index => 2;
-    public override string Title => "書き込み";
-    public override string Description => "ファームウェアを書き込みます。";
-    public override string PrimaryActionText => "書き込み";
-    public override bool CanRetry => true;
+    public FlashStep() : base(StepDefinitions.Flash)
+    {
+    }
 
     public override async Task<StepResult> ExecuteAsync(StepContext context, CancellationToken token)
     {
         var vm = context.ViewModel;
         if (vm.SelectedPort == null)
         {
-            return StepResult.Fail("COMポートが未選択です", canRetry: false);
+            return StepResult.Fail(StepMessages.ComPortNotSelected, canRetry: false);
         }
 
         if (vm.FlashModeSkip)
         {
-            vm.FlashStatus = "書き込みをスキップしました";
-            vm.StatusMessage = "ファームウェア書き込みをスキップ";
+            vm.FlashStatus = StepMessages.FlashSkipped;
+            vm.StatusMessage = StepMessages.FlashSkipStatus;
             return StepResult.Skipped();
         }
 
         if (string.IsNullOrWhiteSpace(vm.FirmwarePath) || !File.Exists(vm.FirmwarePath))
         {
-            vm.ErrorMessage = "ファームウェア stackchan_core2_public.bin が見つかりません";
-            return StepResult.Fail("ファームウェアが見つかりません", canRetry: false);
+            vm.ErrorMessage = StepMessages.FirmwareNotFoundError;
+            return StepResult.Fail(StepMessages.FirmwareNotFound, canRetry: false);
         }
 
         var fwName = Path.GetFileName(vm.FirmwarePath);
@@ -40,18 +38,18 @@ public sealed class FlashStep : StepBase
             !fwName.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) ||
             !fwName.Contains("_public", StringComparison.OrdinalIgnoreCase))
         {
-            vm.ErrorMessage = "_public を含む .bin のみ対応しています";
-            return StepResult.Fail("ファームウェア形式が不正です", canRetry: false);
+            vm.ErrorMessage = StepMessages.FirmwarePublicBinOnly;
+            return StepResult.Fail(StepMessages.FirmwareFormatInvalid, canRetry: false);
         }
 
         if (!int.TryParse(vm.FlashBaud, out var baud))
         {
-            return StepResult.Fail("Baud が数値ではありません", canRetry: false);
+            return StepResult.Fail(StepMessages.FlashBaudNotNumeric, canRetry: false);
         }
 
         var erase = vm.FlashModeErase;
         vm.IsBusy = true;
-        vm.FlashStatus = "書き込み中...";
+        vm.FlashStatus = StepMessages.FlashInProgress;
         vm.StatusMessage = "";
 
         try
@@ -71,27 +69,27 @@ public sealed class FlashStep : StepBase
 
             if (result.Success)
             {
-                vm.FlashStatus = "書き込み完了";
+                vm.FlashStatus = StepMessages.FlashCompleted;
                 return StepResult.Ok();
             }
 
-            vm.FlashStatus = "書き込み失敗";
-            vm.ErrorMessage = $"書き込みに失敗しました（ポート: {vm.SelectedPort.PortName}）。接続手順に戻ってポートを確認してください。ログ: {result.LogPath}";
+            vm.FlashStatus = StepMessages.FlashStatusFailed;
+            vm.ErrorMessage = $"{StepMessages.FlashWriteFailed}（ポート: {vm.SelectedPort.PortName}）。接続手順に戻ってポートを確認してください。ログ: {result.LogPath}";
             vm.PrimaryButtonText = "再試行";
-            return StepResult.Fail("書き込みに失敗しました", guidance: "書き込みログを確認してください。", canRetry: true);
+            return StepResult.Fail(StepMessages.FlashWriteFailed, guidance: StepMessages.RetryByCheckingFlashLog, canRetry: true);
         }
         catch (OperationCanceledException)
         {
-            vm.FlashStatus = "中止しました";
+            vm.FlashStatus = StepMessages.Cancelled;
             return StepResult.Cancelled();
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Flash failed");
-            vm.ErrorMessage = $"書き込みに失敗しました。ログ: {AiStackchanSetup.Services.LogService.FlashLogPath}";
+            vm.ErrorMessage = $"{StepMessages.FlashWriteFailed}。ログ: {AiStackchanSetup.Services.LogService.FlashLogPath}";
             vm.LastError = ex.Message;
             vm.PrimaryButtonText = "再試行";
-            return StepResult.Fail("書き込みに失敗しました", guidance: "書き込みログを確認してください。", canRetry: true);
+            return StepResult.Fail(StepMessages.FlashWriteFailed, guidance: StepMessages.RetryByCheckingFlashLog, canRetry: true);
         }
         finally
         {
