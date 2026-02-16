@@ -111,18 +111,8 @@ public partial class FlashService : IFlashService
                     }
                 }
             }
-
-            // Note: --no-stub might be needed for some usb-serial chips but usually standard flash is fine.
-            // Specifying offset 0x0 is implied for single bin if not specified? 
-            // espflash flash -p COMx -b 921600 file.bin addresses 0x0 by default for raw binaries provided as argument? 
-            // Actually espflash usually expects a partition table or specific format. 
-            // But if we give it a raw bin, we might need to specify address.
-            // espflash write-bin 0x0 file.bin is the command for raw binaries in older versions, 
-            // or `flash` command might strictly require partition table.
-            // Let's check typical usage. "write-bin" is explicit.
-            // However, esptool command was `write_flash -z 0x0`.
-            // Let's try `write-bin 0x0` if `espflash` supports it, or `flash` regarding user's tool version.
-            // Assuming modern espflash: `write-bin -p {port} -B {baud} 0x0 {firmware}`
+            // Use espflash write-bin with explicit 0x0 offset for raw firmware binaries.
+            // Keep esptool fallback for compatibility across adapter/chip combinations.
             
             if (!espflashUnavailableForThisRun)
             {

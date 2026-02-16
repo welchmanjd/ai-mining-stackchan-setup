@@ -1,0 +1,5 @@
+﻿{
+  "git.autoRepositoryDetection": "subFolders",
+  "git.openRepositoryInParentFolders": "never",
+  "git.scanRepositories": []
+}

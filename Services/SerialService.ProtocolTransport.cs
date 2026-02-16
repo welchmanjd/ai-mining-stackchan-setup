@@ -123,7 +123,6 @@ public partial class SerialService
             Log.Warning(ex, "serial.command.timeout.exception");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
-            Close();
             throw;
         }
         catch (SerialCommandException ex)
@@ -131,7 +130,6 @@ public partial class SerialService
             Log.Warning(ex, "serial.command.protocol_error");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
-            Close();
             throw;
         }
         catch (Exception ex)

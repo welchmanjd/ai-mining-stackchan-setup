@@ -95,6 +95,7 @@ public partial class SerialService
             var result = await SendSetWithCompatAsync("duco_user", ducoUserToSend, allowUnknownKey: false);
             if (result.IsFailure) return result;
         }
+        if (!config.ReuseDucoMinerKey)
         {
             var result = await SendSetWithCompatAsync("duco_miner_key", ducoKeyToSend, allowUnknownKey: false);
             if (result.IsFailure) return result;

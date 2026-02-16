@@ -30,7 +30,7 @@ internal sealed class ConfigurationStateService
         var aiEnabled = wifiEnabled && vm.AiEnabled;
 
         var ducoUserToSend = vm.DucoUser;
-        var ducoKeyToSend = (vm.ReuseDucoMinerKey && vm.DucoKeyStored) ? "" : vm.DucoMinerKey;
+        var reuseDucoMinerKey = vm.ReuseDucoMinerKey && vm.DucoKeyStored;
 
         return new DeviceConfig
         {
@@ -40,7 +40,8 @@ internal sealed class ConfigurationStateService
             WifiSsid = vm.ConfigWifiSsid,
             WifiPassword = (vm.ReuseWifiPassword && vm.WifiPasswordStored) ? "" : vm.ConfigWifiPassword,
             DucoUser = ducoUserToSend,
-            DucoMinerKey = ducoKeyToSend,
+            ReuseDucoMinerKey = reuseDucoMinerKey,
+            DucoMinerKey = vm.DucoMinerKey,
             OpenAiKey = (vm.ReuseOpenAiKey && vm.OpenAiKeyStored) ? "" : vm.ConfigOpenAiKey,
             OpenAiModel = vm.ConfigOpenAiModel,
             OpenAiInstructions = vm.ConfigOpenAiInstructions,

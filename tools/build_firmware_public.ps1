@@ -75,6 +75,11 @@ function Resolve-BuildId([string]$repoRoot) {
     return $hash
 }
 
+function Write-Utf8NoBom([string]$path, [string]$content) {
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
+}
+
 $setupRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 
 if ([string]::IsNullOrWhiteSpace($FirmwareRepo)) {
@@ -197,7 +202,7 @@ $meta = @{
     ver = if (-not [string]::IsNullOrWhiteSpace($resolvedVer)) { $resolvedVer } else { Resolve-AppVersion $firmwareRoot }
     build_id = if (-not [string]::IsNullOrWhiteSpace($resolvedBuildId)) { $resolvedBuildId } else { Resolve-BuildId $firmwareRoot }
 } | ConvertTo-Json -Depth 2
-Set-Content -Path $metaPath -Value $meta -Encoding UTF8
+Write-Utf8NoBom -path $metaPath -content $meta
 Write-Host "Copied: $metaPath"
 Write-Host "Done."
 

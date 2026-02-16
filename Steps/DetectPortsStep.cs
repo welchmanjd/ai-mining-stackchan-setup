@@ -44,45 +44,41 @@ public sealed class DetectPortsStep : StepBase
                     return StepResult.Fail(StepText.PortNotFound, guidance: StepText.UsbConnectionAndDriverGuidance, canRetry: true);
                 }
 
-                try
+                var infoTimeout = TimeSpan.FromMilliseconds(1200);
+                var candidates = vm.Ports.Take(2).ToArray();
+                foreach (var candidate in candidates)
                 {
-                    var infoTimeout = TimeSpan.FromMilliseconds(1200);
-                    var candidates = vm.Ports.Take(2).ToArray();
-                    foreach (var candidate in candidates)
+                    token.ThrowIfCancellationRequested();
+                    var info = await context.SerialService.GetInfoAsync(candidate.PortName, infoTimeout, token);
+                    if (info.Success && info.Info != null)
                     {
-                        token.ThrowIfCancellationRequested();
-                        var info = await context.SerialService.GetInfoAsync(candidate.PortName, infoTimeout, token);
-                        if (info.Success && info.Info != null)
-                        {
-                            vm.SelectedPort = candidate;
-                            vm.UpdateCurrentFirmwareInfo(info.Info);
-                            vm.StatusMessage = string.Format(UiText.PortDetectedWithFirmwareInfoFormat, candidate.DisplayName);
-                            return StepResult.Ok();
-                        }
-                    }
-
-                    var bannerInfo = await context.SerialService.ReadBootBannerInfoAsync(
-                        vm.SelectedPort.PortName,
-                        TimeSpan.FromMilliseconds(1200),
-                        token);
-
-                    if (bannerInfo != null)
-                    {
-                        vm.UpdateCurrentFirmwareInfo(bannerInfo);
-                        vm.StatusMessage = string.Format(UiText.PortDetectedWithBootLogInfoFormat, vm.SelectedPort.DisplayName);
+                        vm.SelectedPort = candidate;
+                        vm.UpdateCurrentFirmwareInfo(info.Info);
+                        vm.StatusMessage = string.Format(UiText.PortDetectedWithFirmwareInfoFormat, candidate.DisplayName);
                         return StepResult.Ok();
                     }
+                }
 
-                    vm.UpdateCurrentFirmwareInfo(null);
-                    vm.IsManualPortSelection = true;
-                    vm.Step1Help = StepText.FirmwareInfoNotAvailableHelp;
-                    vm.StatusMessage = string.Format(UiText.PortDetectedFormat, vm.SelectedPort.DisplayName);
+                var bannerInfo = await context.SerialService.ReadBootBannerInfoAsync(
+                    vm.SelectedPort.PortName,
+                    TimeSpan.FromMilliseconds(1200),
+                    token);
+
+                if (bannerInfo != null)
+                {
+                    vm.UpdateCurrentFirmwareInfo(bannerInfo);
+                    vm.StatusMessage = string.Format(UiText.PortDetectedWithBootLogInfoFormat, vm.SelectedPort.DisplayName);
                     return StepResult.Ok();
                 }
-                finally
-                {
-                    context.SerialService.Close();
-                }
+
+                vm.UpdateCurrentFirmwareInfo(null);
+                vm.IsManualPortSelection = true;
+                vm.Step1Help = StepText.FirmwareInfoNotAvailableHelp;
+                vm.StatusMessage = StepText.PortDetectionFailed;
+                return StepResult.Fail(
+                    StepText.PortDetectionFailed,
+                    guidance: StepText.FirmwareInfoNotAvailableHelp,
+                    canRetry: true);
             },
             before: vmLocal =>
             {

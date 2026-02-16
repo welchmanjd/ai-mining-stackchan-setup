@@ -309,7 +309,6 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal">
                 <Button Content="中止" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CancelCommand}" IsEnabled="{Binding CanCancel}" Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
                 <Button Content="{Binding BackButtonText}" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding BackCommand}" Visibility="{Binding IsNotFirstStep, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
-                <Button Content="{Binding AbortButtonText}" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding AbortToCompleteCommand}" Visibility="{Binding IsNotCompleteStep, Converter={StaticResource BoolToVisibility}}" Margin="0,0,12,0" />
                 <Button Content="{Binding PrimaryButtonText}" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding PrimaryCommand}" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBooleanConverter}}" />
             </StackPanel>
         </Grid>

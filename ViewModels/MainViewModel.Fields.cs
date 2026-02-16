@@ -22,7 +22,6 @@ public partial class MainViewModel
     private readonly StepController _stepController;
     private readonly StepContext _stepContext;
     private CancellationTokenSource? _stepCts;
-    private bool _abortToCompleteRequested;
 
     private int _totalSteps;
     private int _step = 1;

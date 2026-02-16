@@ -44,7 +44,6 @@ public partial class MainViewModel : BindableBase
         _totalSteps = _stepController.TotalSteps;
 
         PrimaryCommand = new AsyncRelayCommand(PrimaryAsync, () => !IsBusy);
-        AbortToCompleteCommand = new AsyncRelayCommand(AbortToCompleteAsync);
         CloseCommand = new RelayCommand(RequestShutdown);
         CancelCommand = new RelayCommand(CancelCurrent);
         BackCommand = new RelayCommand(GoBack, () => Step > 1 && !IsBusy);

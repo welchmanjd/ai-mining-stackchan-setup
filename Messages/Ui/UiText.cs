@@ -5,7 +5,6 @@ internal static class UiText
     public const string Cancelled = "中止しました";
     public const string Retry = "再試行";
     public const string RetryTestGuidance = "テストに失敗しました。再試行してください。";
-    public const string AbortedAndReturnedToStep1 = "中断してステップ1に戻りました";
 
     public const string FlashWrite = "書き込み";
     public const string FlashSkipWrite = "書き込みをスキップ";

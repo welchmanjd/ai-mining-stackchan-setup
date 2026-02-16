@@ -40,20 +40,12 @@ public partial class MainViewModel
             _stepController.MoveNext();
             AutoSkipOptionalSteps();
             _stepController.SyncStepMetadata();
-            if (_abortToCompleteRequested)
-            {
-                await ExecuteAbortToCompleteAsync();
-            }
             return;
         }
 
         if (result.Status == StepStatus.Cancelled)
         {
             StatusMessage = UiText.Cancelled;
-            if (_abortToCompleteRequested)
-            {
-                await ExecuteAbortToCompleteAsync();
-            }
             return;
         }
 
@@ -65,11 +57,6 @@ public partial class MainViewModel
         if (result.CanRetry)
         {
             PrimaryButtonText = UiText.Retry;
-        }
-
-        if (_abortToCompleteRequested)
-        {
-            await ExecuteAbortToCompleteAsync();
         }
     }
 
@@ -110,28 +97,6 @@ public partial class MainViewModel
     {
         PrepareForShutdown();
         Application.Current.Shutdown();
-    }
-
-    private async Task AbortToCompleteAsync()
-    {
-        _abortToCompleteRequested = true;
-        if (IsBusy)
-        {
-            CancelCurrent();
-            return;
-        }
-
-        await ExecuteAbortToCompleteAsync();
-    }
-
-    private Task ExecuteAbortToCompleteAsync()
-    {
-        _abortToCompleteRequested = false;
-        Step = 1;
-        _stepController.SyncStepMetadata();
-        StatusMessage = UiText.AbortedAndReturnedToStep1;
-        ErrorMessage = string.Empty;
-        return Task.CompletedTask;
     }
 
     private void GoBack()

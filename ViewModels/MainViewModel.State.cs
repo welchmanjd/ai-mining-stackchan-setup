@@ -51,7 +51,6 @@ public partial class MainViewModel
     public string StepIndicator => $"{Step}/{_totalSteps}";
     public double StepProgressPercent => _totalSteps <= 1 ? 0 : ((double)(Step - 1) / (_totalSteps - 1)) * 100;
     public string BackButtonText => $"前の手順（{_stepController.GetPreviousStepTitle(Step)}）に戻る";
-    public string AbortButtonText => "ここまでの設定を保存して終了";
     public string InputStatusText
     {
         get
@@ -741,7 +740,6 @@ public partial class MainViewModel
     public RelayCommand BackCommand { get; }
     public RelayCommand SkipCommand { get; }
     public AsyncRelayCommand PrimaryCommand { get; }
-    public AsyncRelayCommand AbortToCompleteCommand { get; }
     public AsyncRelayCommand AzureTestCommand { get; }
     public AsyncRelayCommand OpenAiTestCommand { get; }
     public AsyncRelayCommand ValidateApiKeysCommand { get; }

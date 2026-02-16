@@ -8,6 +8,7 @@ public class DeviceConfig
     public string WifiSsid { get; set; } = string.Empty;
     public string WifiPassword { get; set; } = string.Empty;
     public string DucoUser { get; set; } = string.Empty;
+    public bool ReuseDucoMinerKey { get; set; }
     public string DucoMinerKey { get; set; } = string.Empty;
     public string OpenAiKey { get; set; } = string.Empty;
     public string OpenAiModel { get; set; } = string.Empty;
@@ -31,6 +32,7 @@ public class DeviceConfig
             WifiSsid = WifiSsid,
             WifiPassword = Mask(WifiPassword),
             DucoUser = DucoUser,
+            ReuseDucoMinerKey = ReuseDucoMinerKey,
             DucoMinerKey = Mask(DucoMinerKey),
             OpenAiKey = Mask(OpenAiKey),
             OpenAiModel = OpenAiModel,
@@ -71,6 +73,7 @@ public class MaskedDeviceConfig
     public string WifiSsid { get; set; } = string.Empty;
     public string WifiPassword { get; set; } = string.Empty;
     public string DucoUser { get; set; } = string.Empty;
+    public bool ReuseDucoMinerKey { get; set; }
     public string DucoMinerKey { get; set; } = string.Empty;
     public string OpenAiKey { get; set; } = string.Empty;
     public string OpenAiModel { get; set; } = string.Empty;
