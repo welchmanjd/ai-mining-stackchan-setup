@@ -55,7 +55,7 @@ public sealed class FlashStep : StepBase
             async () =>
             {
                 context.SerialService.Close();
-                await Task.Delay(300, token);
+                await Task.Delay(800, token);
 
                 var result = await context.RetryPolicy.ExecuteWithTimeoutAsync(
                     ct => context.FlashService.FlashAsync(vm.SelectedPort.PortName, baud, erase, vm.FirmwarePath, ct),

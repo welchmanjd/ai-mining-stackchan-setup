@@ -32,7 +32,7 @@ app フォルダ内のファイルは必須部品なので、移動・削除し�
 ログ
 ----
 ログは次のフォルダに保存されます：
-  %LOCALAPPDATA%\AiStackchanSetup\Logs
+  AiStackchanSetup.bat と同じ階層の log フォルダ（例: AiStackchanSetup\log\app.log）
 
 トラブル時
 ----------

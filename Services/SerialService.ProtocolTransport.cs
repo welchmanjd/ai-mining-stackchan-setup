@@ -120,19 +120,18 @@ public partial class SerialService
         }
         catch (TimeoutException ex)
         {
-            // Timeout is often transient during boot logs; keep port open to avoid
-            // triggering extra resets by close/open cycles on next probe.
             Log.Warning(ex, "serial.command.timeout.exception");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
+            Close();
             throw;
         }
         catch (SerialCommandException ex)
         {
-            // Protocol-level error; keep port open for subsequent retry/commands.
             Log.Warning(ex, "serial.command.protocol_error");
             trace.AppendLine($"error: {ex.GetType().Name}: {ex.Message}");
             await AppendSerialTraceAsync(trace);
+            Close();
             throw;
         }
         catch (Exception ex)
