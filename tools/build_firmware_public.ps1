@@ -14,7 +14,7 @@ param(
     [string]$Env = 'm5stack-core2-dist',
     [string]$FirmwareRepo = '',
     [switch]$SkipBuild,
-    [bool]$UseSampleConfig = $true
+    [bool]$UseSampleConfig = $false
 )
 
 $ErrorActionPreference = 'Stop'
@@ -91,6 +91,9 @@ $sampleConfig = Join-Path $configDir 'config_private.sample.h'
 $privateConfig = Join-Path $configDir 'config_private.h'
 $backupConfig = ""
 $copiedSample = $false
+$resolvedVer = ''
+$resolvedBuildId = ''
+$destMain = ''
 
 if ($UseSampleConfig) {
     if (-not (Test-Path $sampleConfig)) {
@@ -170,6 +173,12 @@ try {
     New-Item -ItemType Directory -Force -Path $outDir | Out-Null
     Copy-Item -Path $mergedPath -Destination $destMain -Force
     $(Get-Item -Path $destMain).LastWriteTime = Get-Date
+
+    # Resolve metadata while build-time working tree state is still intact.
+    # This keeps meta.json aligned with the actual compiled firmware identity.
+    $resolvedVer = Resolve-AppVersion $firmwareRoot
+    $resolvedBuildId = Resolve-BuildId $firmwareRoot
+
     Write-Host "Copied: $destMain"
 }
 finally {
@@ -185,8 +194,8 @@ finally {
 $metaPath = [System.IO.Path]::ChangeExtension($destMain, '.meta.json')
 $meta = @{
     app = 'Mining-Stackchan-Core2'
-    ver = Resolve-AppVersion $firmwareRoot
-    build_id = Resolve-BuildId $firmwareRoot
+    ver = if (-not [string]::IsNullOrWhiteSpace($resolvedVer)) { $resolvedVer } else { Resolve-AppVersion $firmwareRoot }
+    build_id = if (-not [string]::IsNullOrWhiteSpace($resolvedBuildId)) { $resolvedBuildId } else { Resolve-BuildId $firmwareRoot }
 } | ConvertTo-Json -Depth 2
 Set-Content -Path $metaPath -Value $meta -Encoding UTF8
 Write-Host "Copied: $metaPath"
