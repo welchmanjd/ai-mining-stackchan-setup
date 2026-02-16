@@ -2,7 +2,10 @@
 # Build distribution firmware (public)
 #
 # Run (PowerShell):
-#   powershell -ExecutionPolicy Bypass -File .\tools\build_firmware_public.ps1
+#   .\tools\build_firmware_public.ps1
+#
+# For clean metadata (no "-dirty" caused by sample config staging):
+#   .\tools\build_firmware_public.ps1 -UseSampleConfig:$false
 # =========================================================
 
 
@@ -11,7 +14,7 @@ param(
     [string]$Env = 'm5stack-core2-dist',
     [string]$FirmwareRepo = '',
     [switch]$SkipBuild,
-    [switch]$UseSampleConfig
+    [bool]$UseSampleConfig = $true
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,11 +77,6 @@ function Resolve-BuildId([string]$repoRoot) {
 
 $setupRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 
-$useSampleConfig = $true
-if ($PSBoundParameters.ContainsKey('UseSampleConfig')) {
-    $useSampleConfig = $UseSampleConfig.IsPresent
-}
-
 if ([string]::IsNullOrWhiteSpace($FirmwareRepo)) {
     $FirmwareRepo = Join-Path $setupRoot '..\ai-mining-stackchan-core2'
 }
@@ -94,7 +92,7 @@ $privateConfig = Join-Path $configDir 'config_private.h'
 $backupConfig = ""
 $copiedSample = $false
 
-if ($useSampleConfig) {
+if ($UseSampleConfig) {
     if (-not (Test-Path $sampleConfig)) {
         throw "Sample config not found: $sampleConfig"
     }
@@ -173,15 +171,6 @@ try {
     Copy-Item -Path $mergedPath -Destination $destMain -Force
     $(Get-Item -Path $destMain).LastWriteTime = Get-Date
     Write-Host "Copied: $destMain"
-    $metaPath = [System.IO.Path]::ChangeExtension($destMain, '.meta.json')
-    $meta = @{
-        app = 'Mining-Stackchan-Core2'
-        ver = Resolve-AppVersion $firmwareRoot
-        build_id = Resolve-BuildId $firmwareRoot
-    } | ConvertTo-Json -Depth 2
-    Set-Content -Path $metaPath -Value $meta -Encoding UTF8
-    Write-Host "Copied: $metaPath"
-    Write-Host "Done."
 }
 finally {
     if ($copiedSample) {
@@ -192,4 +181,14 @@ finally {
         }
     }
 }
+
+$metaPath = [System.IO.Path]::ChangeExtension($destMain, '.meta.json')
+$meta = @{
+    app = 'Mining-Stackchan-Core2'
+    ver = Resolve-AppVersion $firmwareRoot
+    build_id = Resolve-BuildId $firmwareRoot
+} | ConvertTo-Json -Depth 2
+Set-Content -Path $metaPath -Value $meta -Encoding UTF8
+Write-Host "Copied: $metaPath"
+Write-Host "Done."
 
