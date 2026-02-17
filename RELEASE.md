@@ -36,9 +36,10 @@ Use the following minimum structure:
 1. Summary (2-4 lines)
 2. User-visible changes (3-5 bullets)
 3. Bundled firmware info
-4. Integrity (ZIP / EXE / firmware)
-5. Security scan URL (ZIP / EXE / firmware)
-6. Known notes/limitations (if any)
+4. Quickstart link (`docs/quickstart-ja.md`)
+5. Integrity (ZIP / EXE / firmware)
+6. Security scan URL (ZIP / EXE / firmware)
+7. Known notes/limitations (if any)
 
 ## Release Notes Template
 
@@ -53,6 +54,10 @@ Use the following minimum structure:
 - app: Mining-Stackchan-Core2
 - ver: 0.825
 - build_id: 3730531128e7
+
+## Quickstart
+- Japanese: `https://github.com/welchmanjd/ai-mining-stackchan-setup/blob/main/docs/quickstart-ja.md`
+- Latest release: `https://github.com/welchmanjd/ai-mining-stackchan-setup/releases/latest`
 
 ## Integrity
 - SHA256 (`AiStackchanSetup.zip`): `<paste hash>`

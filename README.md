@@ -1,3 +1,8 @@
+## Quick Links
+
+- Japanese quickstart: [docs/quickstart-ja.md](docs/quickstart-ja.md)
+- Latest release download: [releases/latest](https://github.com/welchmanjd/ai-mining-stackchan-setup/releases/latest)
+
 # AIマイニングスタックチャン セットアップ
 
 M5Stack Core2 向けの AIマイニングスタックチャンに、ファームウェア書き込みと初期設定（Wi-Fi / APIキー等）を行う Windows 用セットアップアプリです。

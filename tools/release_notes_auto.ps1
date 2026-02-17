@@ -132,10 +132,14 @@ $changesBlock
 - ver: $appVer
 - build_id: $buildId
 
+## Quickstart
+- Japanese: https://github.com/welchmanjd/ai-mining-stackchan-setup/blob/main/docs/quickstart-ja.md
+- Latest release: https://github.com/welchmanjd/ai-mining-stackchan-setup/releases/latest
+
 ## Integrity
-- SHA256 (`AiStackchanSetup.zip`): `$zipHash`
-- SHA256 (`AiStackchanSetup.exe`): `$exeHash`
-- SHA256 (`stackchan_core2_public.bin`): `$fwHash`
+- SHA256 (`AiStackchanSetup.zip`): $zipHash
+- SHA256 (`AiStackchanSetup.exe`): $exeHash
+- SHA256 (`stackchan_core2_public.bin`): $fwHash
 
 ## Security scan
 - VirusTotal (`AiStackchanSetup.zip`): $zipVt
