@@ -168,7 +168,7 @@ if (-not $SkipJapanese) {
         throw "Japanese template not found: $JapaneseTemplatePath"
     }
 
-    $jaTemplate = Get-Content $JapaneseTemplatePath -Raw
+    $jaTemplate = Get-Content $JapaneseTemplatePath -Raw -Encoding UTF8
     $contentJa = $jaTemplate.
         Replace('{{RELEASE_VERSION}}', $versionText).
         Replace('{{DATE}}', $today).
