@@ -1,9 +1,12 @@
 param(
     [string]$DistRoot = '.\dist\AiStackchanSetup',
     [string]$OutputPath = '.\dist\RELEASE_NOTES_auto.md',
+    [string]$OutputPathJa = '.\dist\RELEASE_NOTES_auto_ja.md',
+    [string]$JapaneseTemplatePath = '.\tools\release_notes_auto_ja.template.md',
     [string]$FirmwareMetaPath = '.\firmware\stackchan_core2_public.meta.json',
     [string]$ChangelogPath = '.\CHANGELOG.md',
-    [string]$ReleaseVersion = ''
+    [string]$ReleaseVersion = '',
+    [switch]$SkipJapanese
 )
 
 $ErrorActionPreference = 'Stop'
@@ -12,6 +15,13 @@ Set-StrictMode -Version Latest
 function Write-Utf8NoBom([string]$path, [string]$content) {
     $encoding = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllText($path, $content, $encoding)
+}
+
+function Ensure-ParentDirectory([string]$path) {
+    $dir = Split-Path $path -Parent
+    if (-not [string]::IsNullOrWhiteSpace($dir) -and -not (Test-Path $dir)) {
+        New-Item -ItemType Directory -Path $dir | Out-Null
+    }
 }
 
 function Get-ArtifactInfo([string]$path) {
@@ -150,14 +160,37 @@ $changesBlock
 - If a VirusTotal URL is new and has no analysis yet, upload that artifact once.
 "@
 
-$outDir = Split-Path $OutputPath -Parent
-if (-not [string]::IsNullOrWhiteSpace($outDir) -and -not (Test-Path $outDir)) {
-    New-Item -ItemType Directory -Path $outDir | Out-Null
-}
-
+Ensure-ParentDirectory $OutputPath
 Write-Utf8NoBom $OutputPath $content
 
+if (-not $SkipJapanese) {
+    if (-not (Test-Path $JapaneseTemplatePath -PathType Leaf)) {
+        throw "Japanese template not found: $JapaneseTemplatePath"
+    }
+
+    $jaTemplate = Get-Content $JapaneseTemplatePath -Raw
+    $contentJa = $jaTemplate.
+        Replace('{{RELEASE_VERSION}}', $versionText).
+        Replace('{{DATE}}', $today).
+        Replace('{{CHANGES_BLOCK}}', $changesBlock).
+        Replace('{{APP_NAME}}', $appName).
+        Replace('{{APP_VER}}', $appVer).
+        Replace('{{BUILD_ID}}', $buildId).
+        Replace('{{ZIP_HASH}}', $zipHash).
+        Replace('{{EXE_HASH}}', $exeHash).
+        Replace('{{FW_HASH}}', $fwHash).
+        Replace('{{ZIP_VT}}', $zipVt).
+        Replace('{{EXE_VT}}', $exeVt).
+        Replace('{{FW_VT}}', $fwVt)
+
+    Ensure-ParentDirectory $OutputPathJa
+    Write-Utf8NoBom $OutputPathJa $contentJa
+}
+
 Write-Host "Generated: $OutputPath"
+if (-not $SkipJapanese) {
+    Write-Host "Generated: $OutputPathJa"
+}
 Write-Host "  ZIP: $zipPath"
 Write-Host "  EXE: $exePath"
 Write-Host "  BIN: $firmwareBin"

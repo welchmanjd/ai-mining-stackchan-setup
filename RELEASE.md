@@ -18,6 +18,9 @@ This repository ships a ready-to-use setup package for end users.
    - `.\scripts\build_dist.ps1`
 4. Generate release notes draft:
    - `.\tools\release_notes_auto.ps1 -ReleaseVersion vX.YYY`
+   - Generated files:
+     - `dist/RELEASE_NOTES_auto.md` (English)
+     - `dist/RELEASE_NOTES_auto_ja.md` (Japanese)
 5. Verify setup flow on a real device.
 6. Confirm firmware metadata:
    - `build_id` has no `-dirty`
