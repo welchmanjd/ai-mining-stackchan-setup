@@ -2,6 +2,10 @@
 
 This repository ships a ready-to-use setup package for end users.
 
+## Next Release Command
+
+- `powershell -ExecutionPolicy Bypass -File .\tools\release.ps1 -ReleaseVersion v0.62`
+
 ## Scope
 
 - Main artifact: `dist/AiStackchanSetup.zip`
