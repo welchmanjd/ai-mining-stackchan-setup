@@ -10,17 +10,24 @@ This repository ships a ready-to-use setup package for end users.
 
 ## Pre-Release Checklist
 
-1. Build firmware metadata without temporary dirty state:
+1. Run preflight checks:
+   - `.\tools\preflight_release.ps1`
+2. Build firmware metadata without temporary dirty state:
    - `.\tools\build_firmware_public.ps1 -UseSampleConfig:$false`
-2. Build distribution zip:
+3. Build distribution zip:
    - `.\scripts\build_dist.ps1`
-3. Verify setup flow on a real device.
-4. Confirm firmware metadata:
+4. Generate release notes draft:
+   - `.\tools\release_notes_auto.ps1 -ReleaseVersion vX.YYY`
+5. Verify setup flow on a real device.
+6. Confirm firmware metadata:
    - `build_id` has no `-dirty`
    - `ver` is expected
-5. Generate hash:
-   - `Get-FileHash .\dist\AiStackchanSetup.zip -Algorithm SHA256`
-6. Scan zip on VirusTotal and keep the URL.
+7. Capture build output:
+   - `scripts/build_dist.ps1` now prints `SHA256` and a hash-based VirusTotal URL for:
+     - `dist/AiStackchanSetup.zip`
+     - `dist/AiStackchanSetup/app/AiStackchanSetup.exe`
+     - `dist/AiStackchanSetup/firmware/stackchan_core2_public.bin` (or first bundled `.bin`)
+8. Optional: if VirusTotal has no record yet, upload each missing artifact once from the printed URL page.
 
 ## What To Write In GitHub Release
 
@@ -29,8 +36,8 @@ Use the following minimum structure:
 1. Summary (2-4 lines)
 2. User-visible changes (3-5 bullets)
 3. Bundled firmware info
-4. SHA256 hash
-5. VirusTotal URL
+4. Integrity (ZIP / EXE / firmware)
+5. Security scan URL (ZIP / EXE / firmware)
 6. Known notes/limitations (if any)
 
 ## Release Notes Template
@@ -49,9 +56,13 @@ Use the following minimum structure:
 
 ## Integrity
 - SHA256 (`AiStackchanSetup.zip`): `<paste hash>`
+- SHA256 (`AiStackchanSetup.exe`): `<paste hash>`
+- SHA256 (`stackchan_core2_public.bin`): `<paste hash>`
 
 ## Security scan
-- VirusTotal: `<paste URL>`
+- VirusTotal (`AiStackchanSetup.zip`): `https://www.virustotal.com/gui/file/<sha256-lowercase>?nocache=1`
+- VirusTotal (`AiStackchanSetup.exe`): `https://www.virustotal.com/gui/file/<sha256-lowercase>?nocache=1`
+- VirusTotal (`stackchan_core2_public.bin`): `https://www.virustotal.com/gui/file/<sha256-lowercase>?nocache=1`
 
 ## Notes
 - (optional)

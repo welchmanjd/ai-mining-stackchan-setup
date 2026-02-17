@@ -14,6 +14,7 @@ obj/
 # Logs
 *.log
 *.zip
+log/
 
 # Publish output
 dist/
@@ -21,6 +22,13 @@ dist/
 # OS
 Thumbs.db
 Desktop.ini
+.DS_Store
+
+# Temp / backup
+*.tmp
+*.bak
+*.orig
 
 # Firmware binaries (may contain secrets)
 Resources/firmware/*.bin
+Resources/firmware/*.meta.json

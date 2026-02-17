@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] - 2026-02-17
+
+### Changed
+- Bundled firmware updated: `Mining-Stackchan-Core2` `ver: 0.84`, `build_id: 092bc7b1d3f7`.
+- Release workflow updated: `scripts/build_dist.ps1` now prints ZIP SHA256 and a hash-based VirusTotal URL.
+
 ## [v0.202] - 2026-02-16
 
 ### Added

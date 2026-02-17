@@ -28,6 +28,20 @@ function Copy-IfExists([string]$src, [string]$dst) {
   return $false
 }
 
+function Write-ArtifactDigest([string]$label, [string]$path) {
+  if (!(Test-Path $path)) {
+    Write-Host "$label : not found ($path)"
+    return
+  }
+
+  $hash = (Get-FileHash $path -Algorithm SHA256).Hash.ToUpperInvariant()
+  $vtUrl = "https://www.virustotal.com/gui/file/$($hash.ToLowerInvariant())?nocache=1"
+  Write-Host "$label"
+  Write-Host "  Path      : $path"
+  Write-Host "  SHA256    : $hash"
+  Write-Host "  VirusTotal: $vtUrl"
+}
+
 
 Write-Host "== Build Dist =="
 Write-Host "Project        : $Project"
@@ -65,15 +79,16 @@ if (!(Test-Path $mainExe)) {
   Write-Host "WARN: AiStackchanSetup.exe not found. Using: $($exe.Name)"
 }
 
-# --- 2) copy tools to app/tools ---
+# --- 2) copy required runtime tools to app/tools ---
 $toolsSrc = ".\tools"
-if (Test-Path $toolsSrc) {
-  $toolsDst = Join-Path $appDir "tools"
+$toolsDst = Join-Path $appDir "tools"
+$espflashSrc = Join-Path $toolsSrc "espflash.exe"
+if (Test-Path $espflashSrc) {
   Ensure-Dir $toolsDst
-  Copy-Item "$toolsSrc\*" $toolsDst -Recurse -Force
-  Write-Host "Tools copied    : $toolsSrc -> $toolsDst"
+  Copy-Item $espflashSrc $toolsDst -Force
+  Write-Host "Tool copied     : $espflashSrc -> $toolsDst"
 } else {
-  Write-Host "Tools skipped   : not found ($toolsSrc)"
+  Write-Host "Tool skipped    : not found ($espflashSrc)"
 }
 
 # --- 3) firmware (_public .bin preferred) to dist root ---
@@ -148,8 +163,29 @@ $zipPath = "$DistRoot.zip"
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Compress-Archive -Path "$DistRoot\*" -DestinationPath $zipPath -Force
 
+$distFwBin = $null
+if (Test-Path $rootFwDir) {
+  $distFwBin = Get-ChildItem $rootFwDir -File -Filter *.bin |
+    Where-Object { $_.Name -match "_public" } |
+    Select-Object -First 1
+  if (-not $distFwBin) {
+    $distFwBin = Get-ChildItem $rootFwDir -File -Filter *.bin | Select-Object -First 1
+  }
+}
+
 Write-Host ""
 Write-Host "== DONE =="
 Write-Host "Dist folder: $DistRoot"
 Write-Host "Zip       : $zipPath"
+Write-Host ""
+Write-Host "== Integrity & VirusTotal =="
+Write-ArtifactDigest "Distribution zip" $zipPath
+Write-Host ""
+Write-ArtifactDigest "Setup executable" $mainExe
+Write-Host ""
+if ($distFwBin) {
+  Write-ArtifactDigest "Bundled firmware" $distFwBin.FullName
+} else {
+  Write-Host "Bundled firmware : not found (*.bin under $rootFwDir)"
+}
 
