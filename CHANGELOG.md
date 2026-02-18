@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased] - 2026-02-17
+## [Unreleased]
+
+## [v0.62] - 2026-02-18
 
 ### Changed
 - Bundled firmware updated: `Mining-Stackchan-Core2` `ver: 0.84`, `build_id: 092bc7b1d3f7`.
