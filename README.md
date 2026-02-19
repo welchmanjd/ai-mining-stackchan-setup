@@ -3,6 +3,17 @@
 - Japanese quickstart: [docs/quickstart-ja.md](docs/quickstart-ja.md)
 - Latest release download: [releases/latest](https://github.com/welchmanjd/ai-mining-stackchan-setup/releases/latest)
 
+## はじめての方へ（最短手順）
+
+このリポジトリは、`docs/quickstart-ja.md` だけ読めば開始できるようにしています。
+まずは次のガイドから進めてください。
+
+- 超かんたん設定ガイド: [docs/quickstart-ja.md](docs/quickstart-ja.md)
+
+補足:
+- `ai-mining-stackchan-core2` は開発者向け（ソースコード）です。
+- 利用者の方はセットアップアプリ（`AiStackchanSetup.bat`）から開始してください。
+
 # AIマイニングスタックチャン セットアップ
 
 M5Stack Core2 向けの AIマイニングスタックチャンに、ファームウェア書き込みと初期設定（Wi-Fi / APIキー等）を行う Windows 用セットアップアプリです。

@@ -62,6 +62,9 @@
                                         <StackPanel>
                                             <CheckBox Content="手動でCOMポートを選択" IsChecked="{Binding IsManualPortSelection}" Margin="0,0,0,6" />
                                             <TextBlock Text="見つからない場合は、USBケーブル/ポート/ドライバを確認してください。" />
+                                            <TextBlock Text="よくある原因: (1) ドライバ未導入 (2) 充電専用ケーブル (3) 他アプリがCOMポート使用中"
+                                                       Foreground="#6B7280"
+                                                       TextWrapping="Wrap" />
                                         </StackPanel>
                                     </Expander>
                                 </Grid>
@@ -284,6 +287,11 @@
                                 <TextBlock Text="セットアップ完了" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8" />
                                 <TextBlock Text="AIマイニングスタックチャンの設定が完了しました。" Margin="0,0,0,6" />
                                 <TextBlock Text="必要ならサポート用ログを保存してください。" Margin="0,0,0,12" />
+                                <Border Background="#FEF3C7" CornerRadius="6" Padding="8" Margin="0,0,0,12">
+                                    <TextBlock Text="セキュリティ注意: 設定画面のスクリーンショットにはAPIキーが含まれる場合があります。SNS投稿や配信時はキーが見えないことを確認してください。"
+                                               Foreground="#92400E"
+                                               TextWrapping="Wrap" />
+                                </Border>
                                 <StackPanel Orientation="Horizontal">
                                     <Button Content="サポート用ログを作成" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding CreateSupportPackCommand}" Margin="0,0,12,0" />
                                     <Button Content="ログフォルダを開く" Style="{StaticResource SecondaryButtonStyle}" Command="{Binding OpenLogFolderCommand}" />
