@@ -108,7 +108,7 @@ $zipInfo = Get-ArtifactInfo $zipPath
 $exeInfo = Get-ArtifactInfo $exePath
 $fwInfo = Get-ArtifactInfo $firmwareBin
 $today = Get-Date -Format 'yyyy-MM-dd'
-$changes = Resolve-UnreleasedBullets $ChangelogPath
+$changes = @(Resolve-UnreleasedBullets $ChangelogPath)
 
 $changesBlock = if ($changes.Count -gt 0) {
     ($changes -join "`r`n")
@@ -155,9 +155,6 @@ $changesBlock
 - VirusTotal (`AiStackchanSetup.zip`): $zipVt
 - VirusTotal (`AiStackchanSetup.exe`): $exeVt
 - VirusTotal (`stackchan_core2_public.bin`): $fwVt
-
-## Notes
-- If a VirusTotal URL is new and has no analysis yet, upload that artifact once.
 "@
 
 Ensure-ParentDirectory $OutputPath

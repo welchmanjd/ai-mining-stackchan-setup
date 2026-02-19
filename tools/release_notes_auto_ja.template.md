@@ -26,6 +26,3 @@
 - VirusTotal (`AiStackchanSetup.zip`): {{ZIP_VT}}
 - VirusTotal (`AiStackchanSetup.exe`): {{EXE_VT}}
 - VirusTotal (`stackchan_core2_public.bin`): {{FW_VT}}
-
-### 補足
-- 新規ハッシュで VirusTotal に解析結果がない場合は、対象ファイルを1回アップロードしてください。

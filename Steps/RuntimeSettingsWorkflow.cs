@@ -133,10 +133,11 @@ internal sealed class RuntimeSettingsWorkflow
 
         if (applyResult.IsFailure)
         {
-            _vm.ErrorMessage = $"{StepText.ConfigSaveFailed}: {applyResult.Message}";
+            var saveFailMessage = $"{StepText.ConfigSaveFailed}。再試行してください。";
+            _vm.ErrorMessage = saveFailMessage;
             _vm.LastError = applyResult.Message;
-            _vm.StatusMessage = StepText.ConfigSaveFailed;
-            return RuntimeWorkflowResult.Fail($"{StepText.ConfigSaveFailed}: {applyResult.Message}");
+            _vm.StatusMessage = saveFailMessage;
+            return RuntimeWorkflowResult.Fail(saveFailMessage);
         }
 
         return RuntimeWorkflowResult.Ok();
@@ -231,6 +232,19 @@ internal sealed class RuntimeSettingsWorkflow
         {
             using var doc = JsonDocument.Parse(cfg.Json);
             var root = doc.RootElement;
+            string? wifiSsid = null;
+            if (root.TryGetProperty("wifi_ssid", out var wifi))
+            {
+                if (wifi.ValueKind == JsonValueKind.String)
+                {
+                    wifiSsid = wifi.GetString();
+                }
+                else if (wifi.ValueKind == JsonValueKind.Null)
+                {
+                    wifiSsid = string.Empty;
+                }
+            }
+
             bool? miningValue = null;
             if (root.TryGetProperty("mining_enabled", out var m))
             {
@@ -255,6 +269,13 @@ internal sealed class RuntimeSettingsWorkflow
                         miningValue = false;
                     }
                 }
+            }
+
+            var expectedWifiSsid = _vm.WifiEnabled ? (_vm.ConfigWifiSsid ?? string.Empty).Trim() : string.Empty;
+            var actualWifiSsid = (wifiSsid ?? string.Empty).Trim();
+            if (!string.Equals(actualWifiSsid, expectedWifiSsid, StringComparison.Ordinal))
+            {
+                return RuntimeWorkflowResult.Fail($"wifi_ssid mismatch (expected={expectedWifiSsid}, actual={actualWifiSsid})");
             }
 
             var expectedMining = _vm.WifiEnabled && _vm.MiningEnabled;

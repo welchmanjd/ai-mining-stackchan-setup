@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- Beginner guidance strengthened: setup README and quickstart now clearly redirect end users to `AiStackchanSetup.bat` and include plain-language troubleshooting.
+- UI guidance improved: added common USB/driver cause hints on connection step and API key sharing warning on completion step.
+- Runtime config verification updated to include `wifi_ssid` consistency check and clearer save-failure message for retry.
+- Release-note automation refined to avoid placeholder leakage when assembling release text.
+
 ## [v0.62] - 2026-02-18
 
 ### Changed
