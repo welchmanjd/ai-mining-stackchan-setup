@@ -4,7 +4,10 @@ This repository ships a ready-to-use setup package for end users.
 
 ## Next Release Command
 
-- `powershell -ExecutionPolicy Bypass -File .\tools\release.ps1 -ReleaseVersion v0.62`
+- Generate artifacts + notes (Japanese notes are default):
+  - `powershell -ExecutionPolicy Bypass -File .\tools\release.ps1 -ReleaseVersion v0.63`
+- Generate + publish/update GitHub Release using Japanese notes:
+  - `powershell -ExecutionPolicy Bypass -File .\tools\release.ps1 -ReleaseVersion v0.63 -PublishGitHubRelease`
 
 ## Scope
 
@@ -25,6 +28,7 @@ This repository ships a ready-to-use setup package for end users.
    - Generated files:
      - `dist/RELEASE_NOTES_auto.md` (English)
      - `dist/RELEASE_NOTES_auto_ja.md` (Japanese)
+   - `tools/release.ps1` uses Japanese notes by default (`-ReleaseNotesLanguage ja`).
 5. Verify setup flow on a real device.
 6. Confirm firmware metadata:
    - `build_id` has no `-dirty`
