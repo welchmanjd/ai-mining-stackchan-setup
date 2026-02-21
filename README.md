@@ -1,22 +1,28 @@
+# AIマイニングスタックチャン セットアップ
+
+M5Stack Core2 向けの **AIマイニングスタックチャン** に、ファームウェア書き込みと初期設定（Wi-Fi / APIキー等）を行う **Windows 用セットアップアプリ**です。
+
+---
+
 ## Quick Links
 
-- Japanese quickstart: [docs/quickstart-ja.md](docs/quickstart-ja.md)
-- Latest release download: [releases/latest](https://github.com/welchmanjd/ai-mining-stackchan-setup/releases/latest)
+- Japanese quickstart: `docs/quickstart-ja.md`
+- Latest release download: `releases/latest`
+
+---
 
 ## はじめての方へ（最短手順）
 
-このリポジトリは、`docs/quickstart-ja.md` だけ読めば開始できるようにしています。
-まずは次のガイドから進めてください。
+このリポジトリは、`docs/quickstart-ja.md` だけ読めば開始できるようにしています。まずは次のガイドから進めてください。
 
-- 超かんたん設定ガイド: [docs/quickstart-ja.md](docs/quickstart-ja.md)
+- 超かんたん設定ガイド: `docs/quickstart-ja.md`
 
 補足:
+
 - `ai-mining-stackchan-core2` は開発者向け（ソースコード）です。
 - 利用者の方はセットアップアプリ（`AiStackchanSetup.bat`）から開始してください。
 
-# AIマイニングスタックチャン セットアップ
-
-M5Stack Core2 向けの AIマイニングスタックチャンに、ファームウェア書き込みと初期設定（wifi / APIキー等）を行う Windows 用セットアップアプリです。
+---
 
 ## 概要
 
@@ -24,16 +30,20 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 - USB接続された M5Stack Core2 のポート検出
 - ファームウェア書き込み
-- 機能ON/OFF設定（wifi / Mining / AI）
+- 機能ON/OFF設定（Wi-Fi / Mining / AI）
 - Duino-coin / Azure / OpenAI 設定の投入
 - 設定保存・再起動
 - サポート用ログ（ZIP）作成
+
+---
 
 ## 動作環境
 
 - Windows 10 / 11
 - .NET 8 ランタイム（配布形態により不要な場合あり）
 - USB接続可能な M5Stack Core2
+
+---
 
 ## 使い方（配布物）
 
@@ -45,8 +55,8 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 - `app` フォルダ配下は実行に必要です。移動・削除しないでください。
 - `app` 直下の `AiStackchanSetup.exe` を直接起動せず、必ず `AiStackchanSetup.bat` から起動してください。
-- 入力したwifiパスワードは、ｽﾀｯｸﾁｬﾝをwifiにつなぐためにだけ使用します。
-- 入力したAPIキーは、動作確認とｽﾀｯｸﾁｬﾝの設定にだけ使用します。
+
+---
 
 ## ファームウェア差し替え
 
@@ -59,15 +69,18 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 同名のメタ情報ファイル（例: `stackchan_core2_public.meta.json`）があると、バージョン表示に利用されます。
 
+---
+
 ## ログ
 
 ログ出力先:
 
-- 配布版 (`AiStackchanSetup.bat` 起動): `AiStackchanSetup.bat` と同じ階層の `log` フォルダ
+- 配布版（`AiStackchanSetup.bat` 起動）: `AiStackchanSetup.bat` と同じ階層の `log` フォルダ
 - 開発実行時など（上記を解決できない場合）: `%LOCALAPPDATA%\AiStackchanSetup\Logs`
 
 トラブル時は、アプリ内の「サポート用ログを作成」で ZIP を作成して共有してください。
-サポート用ログには、wifiパスワードとAPIキー本体は含めません。
+
+---
 
 ## 開発者向け
 
@@ -98,6 +111,26 @@ dotnet build .\AiStackchanSetup.csproj -c Release
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\build_dist.ps1
 ```
+
+---
+
+## クレジット / 謝辞
+
+ｽﾀｯｸﾁｬﾝは、ししかわさん（meganetaaan）が開発・公開されている、手のひらサイズのｽｰﾊﾟｰｶﾜｲｲコミュニケーションロボットです。
+作品ページ: [https://github.com/meganetaaan/stack-chan](https://github.com/meganetaaan/stack-chan)
+
+本プロジェクト「AIマイニングスタックチャン」は、ｽﾀｯｸﾁｬﾝをはじめとする多くの素晴らしい成果の上に成り立っています。ここに深く感謝申し上げます。
+
+* ｽﾀｯｸﾁｬﾝ：作者 ししかわさん（meganetaaan）
+  [https://github.com/meganetaaan/stack-chan](https://github.com/meganetaaan/stack-chan)
+* AIｽﾀｯｸﾁｬﾝ：Robo8080さん
+  [https://github.com/robo8080/AI_StackChan2](https://github.com/robo8080/AI_StackChan2)
+* 筐体（タカオ版ボディ）：タカヲ（タカオ）さん（X: @mongonta555）
+  [https://scrapbox.io/stack-chan/ｽﾀｯｸﾁｬﾝ＆M5Stack関連の3Dデータ](https://scrapbox.io/stack-chan/ｽﾀｯｸﾁｬﾝ＆M5Stack関連の3Dデータ)
+* アバター（顔表示）：M5Stack-Avatar（作者：ししかわさん / meganetaaan）
+  [https://github.com/stack-chan/m5stack-avatar](https://github.com/stack-chan/m5stack-avatar)
+
+---
 
 ## ライセンス
 
