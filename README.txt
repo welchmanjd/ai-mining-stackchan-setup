@@ -52,6 +52,6 @@ AiStackchanSetup.bat と同じ階層の log フォルダ
 
 AIｽﾀｯｸﾁｬﾝ: Robo8080さん https://github.com/robo8080/AI_StackChan2
 筐体（タカオ版ボディ）: タカヲ（タカオ）さん（X: @mongonta555）
-（関連情報まとめ）https://scrapbox.io/stack-chan/ｽﾀｯｸﾁｬﾝ＆M5Stack関連の3Dデータ
+（関連情報まとめ）https://mongonta.booth.pm/
 アバター（顔表示）: M5Stack-Avatar（作者：ししかわさん / meganetaaan）
 https://github.com/stack-chan/m5stack-avatar
