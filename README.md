@@ -6,8 +6,8 @@ M5Stack Core2 向けの **AIマイニングスタックチャン** に、ファ�
 
 ## Quick Links
 
-- Japanese quickstart: `docs/quickstart-ja.md`
-- Latest release download: `releases/latest`
+- Japanese quickstart: [docs/quickstart-ja.md](docs/quickstart-ja.md)
+- Latest release download: [releases/latest](https://github.com/welchmanjd/ai-mining-stackchan-setup/releases/latest)
 
 ---
 
@@ -15,7 +15,7 @@ M5Stack Core2 向けの **AIマイニングスタックチャン** に、ファ�
 
 このリポジトリは、`docs/quickstart-ja.md` だけ読めば開始できるようにしています。まずは次のガイドから進めてください。
 
-- 超かんたん設定ガイド: `docs/quickstart-ja.md`
+- 超かんたん設定ガイド: [docs/quickstart-ja.md](docs/quickstart-ja.md)
 
 補足:
 
