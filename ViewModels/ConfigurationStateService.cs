@@ -31,6 +31,16 @@ internal sealed class ConfigurationStateService
 
         var ducoUserToSend = vm.DucoUser;
         var reuseDucoMinerKey = vm.ReuseDucoMinerKey && vm.DucoKeyStored;
+        var wifiPasswordToSend = (vm.ReuseWifiPassword && vm.WifiPasswordStored)
+            ? string.Empty
+            : InputSanitizer.NormalizeWifiPassword(vm.ConfigWifiPassword);
+        var ducoMinerKeyToSend = vm.DucoMinerKey;
+        var openAiKeyToSend = (vm.ReuseOpenAiKey && vm.OpenAiKeyStored)
+            ? string.Empty
+            : InputSanitizer.NormalizeSecret(vm.ConfigOpenAiKey);
+        var azureKeyToSend = (vm.ReuseAzureKey && vm.AzureKeyStored)
+            ? string.Empty
+            : InputSanitizer.NormalizeSecret(vm.AzureKey);
 
         return new DeviceConfig
         {
@@ -38,14 +48,14 @@ internal sealed class ConfigurationStateService
             MiningEnabled = miningEnabled,
             AiEnabled = aiEnabled,
             WifiSsid = vm.ConfigWifiSsid,
-            WifiPassword = (vm.ReuseWifiPassword && vm.WifiPasswordStored) ? "" : vm.ConfigWifiPassword,
+            WifiPassword = wifiPasswordToSend,
             DucoUser = ducoUserToSend,
             ReuseDucoMinerKey = reuseDucoMinerKey,
-            DucoMinerKey = vm.DucoMinerKey,
-            OpenAiKey = (vm.ReuseOpenAiKey && vm.OpenAiKeyStored) ? "" : vm.ConfigOpenAiKey,
+            DucoMinerKey = ducoMinerKeyToSend,
+            OpenAiKey = openAiKeyToSend,
             OpenAiModel = vm.ConfigOpenAiModel,
             OpenAiInstructions = vm.ConfigOpenAiInstructions,
-            AzureKey = (vm.ReuseAzureKey && vm.AzureKeyStored) ? "" : vm.AzureKey,
+            AzureKey = azureKeyToSend,
             AzureRegion = vm.AzureRegion,
             AzureCustomSubdomain = vm.AzureCustomSubdomain,
             DisplaySleepSeconds = displaySleepSeconds,
@@ -180,7 +190,8 @@ internal sealed class ConfigurationStateService
             }
             if (TryGetInt(root, "spk_volume", out var speakerVolume))
             {
-                vm.SpeakerVolumeText = speakerVolume.ToString();
+                // Keep compatibility with older firmware defaults while honoring new app defaults.
+                vm.SpeakerVolumeText = speakerVolume == 160 ? "100" : speakerVolume.ToString();
             }
 
             if (TryGetString(root, "share_accepted_text", out var shareAcceptedText) && !string.IsNullOrWhiteSpace(shareAcceptedText))
@@ -189,7 +200,9 @@ internal sealed class ConfigurationStateService
             }
             if (TryGetString(root, "attention_text", out var attentionText) && !string.IsNullOrWhiteSpace(attentionText))
             {
-                vm.AttentionText = attentionText;
+                vm.AttentionText = string.Equals(attentionText, "Hi", StringComparison.Ordinal)
+                    ? "こんにちは"
+                    : attentionText;
             }
             if (TryGetString(root, "hello_text", out var helloText) && !string.IsNullOrWhiteSpace(helloText))
             {

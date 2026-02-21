@@ -3,8 +3,11 @@ namespace AiStackchanSetup.Messages.Ui;
 internal static class UiText
 {
     public const string Cancelled = "中止しました";
-    public const string Retry = "再試行";
-    public const string RetryTestGuidance = "テストに失敗しました。再試行してください。";
+    public const string Retry = "もう一度ためす";
+    public const string RetryTestGuidance = "テストに失敗しました。設定を見直して、もう一度ためしてください。";
+    public const string FailureActionsPrompt = "うまくいかないときは、次の操作をためしてください。";
+    public const string GuidanceFallback = "もう一度ためすか、サポート用ログを作成してください。";
+    public const string Exit = "終了";
 
     public const string FlashWrite = "書き込み";
     public const string FlashSkipWrite = "書き込みをスキップ";
@@ -39,14 +42,15 @@ internal static class UiText
     public const string DeviceLogFetchFailed = "デバイスログ取得に失敗しました";
 
     public const string SupportPackCreationFailed = "サポート用ログ作成に失敗しました";
+    public const string SupportPackCreatedExitHint = "サポート用ログを作成しました。必要なら終了してください。";
     public const string BinFileDialogFilter = "BINファイル (*.bin)|*.bin|すべてのファイル (*.*)|*.*";
 
     public const string DisplaySleepSecondsInvalid = "画面スリープ秒数は0以上の数値で入力してください";
     public const string SpeakerVolumeInvalid = "スピーカー音量は0-255の数値で入力してください";
 
-    public const string PortDetectedWithFirmwareInfoFormat = "{0} detected (FW info available)";
-    public const string PortDetectedWithBootLogInfoFormat = "{0} detected (boot log FW info)";
-    public const string PortDetectedFormat = "{0} detected";
+    public const string PortDetectedWithFirmwareInfoFormat = "{0} を検出しました（ファームウェア情報あり）";
+    public const string PortDetectedWithBootLogInfoFormat = "{0} を検出しました（起動ログの情報あり）";
+    public const string PortDetectedFormat = "{0} を検出しました";
 
     public static string Unavailable(string reason) => $"利用できません: {reason}";
 

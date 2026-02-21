@@ -158,12 +158,13 @@ public partial class MainViewModel
         var manifest = FirmwareManifest.FromFirmwarePath(path);
         if (manifest == null)
         {
-            return $"size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
+            return $"app=unknown / ver=unknown / build=unknown / size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
         }
 
+        var app = string.IsNullOrWhiteSpace(manifest.App) ? "unknown" : manifest.App;
         var ver = string.IsNullOrWhiteSpace(manifest.Ver) ? "unknown" : manifest.Ver;
         var build = string.IsNullOrWhiteSpace(manifest.BuildId) ? "unknown" : manifest.BuildId;
-        return $"ver={ver} / build={build} / size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
+        return $"app={app} / ver={ver} / build={build} / size={info.Size} bytes / mtime={info.LastWriteTime:yyyy-MM-dd HH:mm:ss} / sha256={info.Sha256[..12]}";
     }
 
 }

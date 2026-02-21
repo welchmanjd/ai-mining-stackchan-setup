@@ -30,10 +30,15 @@ public partial class MainViewModel
     private string _primaryButtonText = "探す";
     private bool _isBusy;
     private string _statusMessage = "";
+    private string _statusAssistMessage = "";
     private string _errorMessage = "";
+    private string _stepGuidanceMessage = "";
+    private bool _showFailureActions;
+    private bool _canRetryCurrentStep;
     private string _step1Help = "";
     private bool _isAdvancedPanelOpen;
     private bool _isManualPortSelection;
+    private CancellationTokenSource? _busyAssistCts;
 
     private SerialPortInfo? _selectedPort;
     private readonly FlashSettingsState _flashState = new()
@@ -47,6 +52,10 @@ public partial class MainViewModel
 
     private readonly WifiSettingsState _wifiState = new();
     private readonly AiSettingsState _aiState = new();
+    private bool _showWifiPassword;
+    private bool _showDucoMinerKey;
+    private bool _showAzureKey;
+    private bool _showOpenAiKey;
     private string _maskedOpenAiKey = "";
     // Stub: save-to-PC and Azure integration are not implemented in v1 (UI only).
     private bool _saveToPc;

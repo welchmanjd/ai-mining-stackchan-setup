@@ -81,6 +81,7 @@ public partial class MainViewModel
                 BackCommand.RaiseCanExecuteChanged();
                 SkipCommand.RaiseCanExecuteChanged();
                 RaisePropertyChanged(nameof(CanCancel));
+                HandleBusyStateChanged();
             }
         }
     }
@@ -93,10 +94,34 @@ public partial class MainViewModel
         set => SetProperty(ref _statusMessage, value);
     }
 
+    public string StatusAssistMessage
+    {
+        get => _statusAssistMessage;
+        set => SetProperty(ref _statusAssistMessage, value);
+    }
+
     public string ErrorMessage
     {
         get => _errorMessage;
         set => SetProperty(ref _errorMessage, value);
+    }
+
+    public string StepGuidanceMessage
+    {
+        get => _stepGuidanceMessage;
+        set => SetProperty(ref _stepGuidanceMessage, value);
+    }
+
+    public bool ShowFailureActions
+    {
+        get => _showFailureActions;
+        set => SetProperty(ref _showFailureActions, value);
+    }
+
+    public bool CanRetryCurrentStep
+    {
+        get => _canRetryCurrentStep;
+        set => SetProperty(ref _canRetryCurrentStep, value);
     }
 
     public string Step1Help
@@ -151,13 +176,54 @@ public partial class MainViewModel
     public string CurrentFirmwareInfoText
     {
         get => _flashState.CurrentFirmwareInfoText;
-        set => SetProperty(ref _flashState.CurrentFirmwareInfoText, value);
+        set
+        {
+            if (SetProperty(ref _flashState.CurrentFirmwareInfoText, value))
+            {
+                RaisePropertyChanged(nameof(FlashOperationTitle));
+                RaisePropertyChanged(nameof(FlashOverwriteOptionText));
+                RaisePropertyChanged(nameof(FlashEraseOptionText));
+                RaisePropertyChanged(nameof(ShowFlashSkipOption));
+
+                if (!ShowFlashSkipOption && FlashModeSkip)
+                {
+                    FlashMode = 0;
+                }
+            }
+        }
     }
 
     public string FirmwareCompareMessage
     {
         get => _flashState.FirmwareCompareMessage;
         set => SetProperty(ref _flashState.FirmwareCompareMessage, value);
+    }
+
+    public string FlashOperationTitle => HasCurrentFirmwareOnDevice
+        ? "ファームウエアの上書き"
+        : "ファームウエアの書き込み";
+
+    public string FlashOverwriteOptionText => HasCurrentFirmwareOnDevice
+        ? "ファームウエアを上書き"
+        : "ファームウエアを書き込み";
+
+    public string FlashEraseOptionText => HasCurrentFirmwareOnDevice
+        ? "フラッシュを消去して上書き"
+        : "フラッシュを消去して書き込み";
+
+    public bool ShowFlashSkipOption => HasCurrentFirmwareOnDevice;
+
+    private bool HasCurrentFirmwareOnDevice
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(CurrentFirmwareInfoText))
+            {
+                return false;
+            }
+
+            return !string.Equals(CurrentFirmwareInfoText, "未取得", StringComparison.Ordinal);
+        }
     }
 
     public string FlashBaud
@@ -216,7 +282,7 @@ public partial class MainViewModel
         get => FlashMode == 2;
         set
         {
-            if (value)
+            if (value && ShowFlashSkipOption)
             {
                 FlashMode = 2;
             }
@@ -276,9 +342,11 @@ public partial class MainViewModel
         get => _wifiState.ConfigWifiPassword;
         set
         {
-            if (SetProperty(ref _wifiState.ConfigWifiPassword, value))
+            var normalized = InputSanitizer.NormalizeWifiPassword(value);
+            if (SetProperty(ref _wifiState.ConfigWifiPassword, normalized))
             {
                 RaisePropertyChanged(nameof(InputStatusText));
+                RaisePropertyChanged(nameof(ShowWifiPasswordSpaceWarning));
             }
         }
     }
@@ -310,12 +378,19 @@ public partial class MainViewModel
             {
                 RaisePropertyChanged(nameof(CanEditWifiPassword));
                 RaisePropertyChanged(nameof(InputStatusText));
+                RaisePropertyChanged(nameof(ShowWifiPasswordSpaceWarning));
             }
         }
     }
 
     public bool CanReuseWifiPassword => WifiPasswordStored;
     public bool CanEditWifiPassword => !ReuseWifiPassword;
+    public bool ShowWifiPasswordSpaceWarning => CanEditWifiPassword && InputSanitizer.HasEdgeWhitespace(ConfigWifiPassword);
+    public bool ShowWifiPassword
+    {
+        get => _showWifiPassword;
+        set => SetProperty(ref _showWifiPassword, value);
+    }
 
     public bool WifiEnabled
     {
@@ -345,7 +420,6 @@ public partial class MainViewModel
             if (SetProperty(ref _wifiState.MiningEnabled, value))
             {
                 RaisePropertyChanged(nameof(IsMiningDisabled));
-                RaisePropertyChanged(nameof(MiningModeSummary));
                 RaiseApiValidationStateChanged();
                 RaisePropertyChanged(nameof(InputStatusText));
             }
@@ -367,7 +441,6 @@ public partial class MainViewModel
 
     public bool FeatureToggleChildrenEnabled => WifiEnabled;
     public bool IsMiningDisabled => !MiningEnabled;
-    public string MiningModeSummary => MiningEnabled ? "マイニング機能はONにします" : "マイニング機能はOFFにします";
 
     public string DucoUser
     {
@@ -426,15 +499,21 @@ public partial class MainViewModel
 
     public bool CanReuseDucoMinerKey => DucoKeyStored;
     public bool CanEditDucoMinerKey => !ReuseDucoMinerKey;
+    public bool ShowDucoMinerKey
+    {
+        get => _showDucoMinerKey;
+        set => SetProperty(ref _showDucoMinerKey, value);
+    }
 
     public string ConfigOpenAiKey
     {
         get => _aiState.ConfigOpenAiKey;
         set
         {
-            if (SetProperty(ref _aiState.ConfigOpenAiKey, value))
+            var normalized = InputSanitizer.NormalizeSecret(value);
+            if (SetProperty(ref _aiState.ConfigOpenAiKey, normalized))
             {
-                MaskedOpenAiKey = DeviceConfig.Mask(value);
+                MaskedOpenAiKey = DeviceConfig.Mask(normalized);
                 _openAiTestedKey = "";
                 _openAiTestedOk = false;
                 ApiTestSummary = "未実行";
@@ -484,6 +563,11 @@ public partial class MainViewModel
 
     public bool CanReuseOpenAiKey => OpenAiKeyStored;
     public bool CanEditOpenAiKey => !ReuseOpenAiKey;
+    public bool ShowOpenAiKey
+    {
+        get => _showOpenAiKey;
+        set => SetProperty(ref _showOpenAiKey, value);
+    }
 
     public string ConfigOpenAiModel
     {
@@ -590,9 +674,9 @@ public partial class MainViewModel
         get => _aiState.AzureKey;
         set
         {
-            if (SetProperty(ref _aiState.AzureKey, value))
+            var normalized = InputSanitizer.NormalizeSecret(value);
+            if (SetProperty(ref _aiState.AzureKey, normalized))
             {
-                AzureKeyStored = !string.IsNullOrWhiteSpace(value);
                 ResetAzureTestState();
                 RaisePropertyChanged(nameof(InputStatusText));
             }
@@ -637,6 +721,11 @@ public partial class MainViewModel
 
     public bool CanReuseAzureKey => AzureKeyStored;
     public bool CanEditAzureKey => !ReuseAzureKey;
+    public bool ShowAzureKey
+    {
+        get => _showAzureKey;
+        set => SetProperty(ref _showAzureKey, value);
+    }
     public bool CanRunApiValidation => !IsUsingStoredApiKeys;
     public string ApiValidationGuideText => IsUsingStoredApiKeys
         ? "M5StackCore2内の情報を利用するためスキップします。"

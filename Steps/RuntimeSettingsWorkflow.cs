@@ -133,7 +133,7 @@ internal sealed class RuntimeSettingsWorkflow
 
         if (applyResult.IsFailure)
         {
-            var saveFailMessage = $"{StepText.ConfigSaveFailed}。再試行してください。";
+            var saveFailMessage = $"{StepText.ConfigSaveFailed}。もう一度ためしてください。";
             _vm.ErrorMessage = saveFailMessage;
             _vm.LastError = applyResult.Message;
             _vm.StatusMessage = saveFailMessage;

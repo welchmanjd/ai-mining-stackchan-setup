@@ -2,9 +2,9 @@ namespace AiStackchanSetup.Messages.Step;
 
 internal static partial class StepText
 {
-    public const string UsbConnectionAndPortGuidance = "USB接続とCOMポート選択を確認してください。";
+    public const string UsbConnectionAndPortGuidance = "USB接続と接続先（COMポート）を確認してください。";
     public const string UsbConnectionAndDriverGuidance = "USB接続とドライバを確認してください。";
-    public const string RetryByCheckingFlashLog = "書き込みログを確認してから再試行してください。";
+    public const string RetryByCheckingFlashLog = "書き込みログを確認してから、もう一度ためしてください。";
 
     public const string PortDetectionFailed = "ポート検出に失敗しました";
     public const string PortNotFound = "ポートが見つかりません";
@@ -15,7 +15,7 @@ internal static partial class StepText
 
     public const string ApiPrecheckFailedPrefix = "事前確認に失敗";
     public const string ApiKeyValidationFailed = "APIキー検証に失敗しました";
-    public const string ApiKeyValidationRetryGuidance = "APIキー検証に失敗しました。設定を見直して再試行してください。";
+    public const string ApiKeyValidationRetryGuidance = "APIキー検証に失敗しました。設定を見直して、もう一度ためしてください。";
 
     public const string ConfigSendFailed = "設定送信に失敗しました";
     public const string ConfigSaveFailed = "設定保存に失敗しました";

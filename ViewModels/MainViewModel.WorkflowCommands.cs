@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using AiStackchanSetup.Infrastructure;
 using AiStackchanSetup.Steps;
 using Serilog;
 
@@ -13,7 +14,13 @@ public partial class MainViewModel
 
     private async Task PrimaryAsync()
     {
+        if (!ConfirmWifiPasswordEdgeWhitespace())
+        {
+            return;
+        }
+
         ErrorMessage = "";
+        ClearStepFailureState(clearAssistMessage: true);
         _stepCts?.Dispose();
         _stepCts = new CancellationTokenSource();
         RaisePropertyChanged(nameof(CanCancel));
@@ -37,6 +44,7 @@ public partial class MainViewModel
 
         if (result.Status == StepStatus.Success || result.Status == StepStatus.Skipped)
         {
+            ClearStepFailureState(clearAssistMessage: true);
             _stepController.MoveNext();
             AutoSkipOptionalSteps();
             _stepController.SyncStepMetadata();
@@ -45,19 +53,40 @@ public partial class MainViewModel
 
         if (result.Status == StepStatus.Cancelled)
         {
+            ClearStepFailureState(clearAssistMessage: true);
             StatusMessage = UiText.Cancelled;
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+        ApplyFailureResult(result);
+    }
+
+    private bool ConfirmWifiPasswordEdgeWhitespace()
+    {
+        if (Step != StepDefinitions.Wifi.Index || !WifiEnabled)
         {
-            ErrorMessage = result.ErrorMessage;
+            return true;
         }
 
-        if (result.CanRetry)
+        if (ReuseWifiPassword && WifiPasswordStored)
         {
-            PrimaryButtonText = UiText.Retry;
+            return true;
         }
+
+        if (!InputSanitizer.HasEdgeWhitespace(ConfigWifiPassword))
+        {
+            return true;
+        }
+
+        var message = "パスワードの先頭または末尾にスペースがあります。\nこのまま続けますか？";
+        var result = MessageBox.Show(
+            message,
+            "確認",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        return result == MessageBoxResult.Yes;
     }
 
     private void AutoSkipOptionalSteps()
@@ -83,6 +112,7 @@ public partial class MainViewModel
     {
         try
         {
+            StopBusyAssistTimer();
             CancelCurrent();
             _serialService.Close();
             _flashService.KillActiveProcesses();
@@ -101,6 +131,7 @@ public partial class MainViewModel
 
     private void GoBack()
     {
+        ClearStepFailureState(clearAssistMessage: true);
         _stepController.MovePrevious();
         _stepController.SyncStepMetadata();
         BackCommand.RaiseCanExecuteChanged();
@@ -109,6 +140,7 @@ public partial class MainViewModel
 
     private void SkipStep()
     {
+        ClearStepFailureState(clearAssistMessage: true);
         _stepController.Skip();
         _stepController.SyncStepMetadata();
         BackCommand.RaiseCanExecuteChanged();
@@ -121,6 +153,82 @@ public partial class MainViewModel
         {
             PrimaryButtonText = FlashModeSkip ? UiText.FlashSkipWrite : UiText.FlashWrite;
         }
+    }
+
+    private void ApplyFailureResult(StepResult result)
+    {
+        if (!string.IsNullOrWhiteSpace(result.ErrorMessage))
+        {
+            ErrorMessage = result.ErrorMessage;
+        }
+
+        StepGuidanceMessage = string.IsNullOrWhiteSpace(result.Guidance)
+            ? UiText.GuidanceFallback
+            : result.Guidance;
+        CanRetryCurrentStep = result.CanRetry;
+        ShowFailureActions = true;
+        StatusAssistMessage = UiText.FailureActionsPrompt;
+
+        if (result.CanRetry)
+        {
+            PrimaryButtonText = UiText.Retry;
+        }
+    }
+
+    private void ClearStepFailureState(bool clearAssistMessage)
+    {
+        StepGuidanceMessage = string.Empty;
+        ShowFailureActions = false;
+        CanRetryCurrentStep = false;
+        if (clearAssistMessage && !IsBusy)
+        {
+            StatusAssistMessage = string.Empty;
+        }
+    }
+
+    private void HandleBusyStateChanged()
+    {
+        if (IsBusy)
+        {
+            StatusAssistMessage = StepText.ProcessingAssist;
+            StartBusyAssistTimer();
+            return;
+        }
+
+        StopBusyAssistTimer();
+        StatusAssistMessage = ShowFailureActions
+            ? UiText.FailureActionsPrompt
+            : string.Empty;
+    }
+
+    private void StartBusyAssistTimer()
+    {
+        StopBusyAssistTimer();
+        _busyAssistCts = new CancellationTokenSource();
+        _ = ShowBusyAssistAfterDelayAsync(_busyAssistCts.Token);
+    }
+
+    private async Task ShowBusyAssistAfterDelayAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(_timeouts.LongRunningNoticeDelay, token);
+            if (!token.IsCancellationRequested && IsBusy)
+            {
+                StatusAssistMessage = StepText.ProcessingLongAssist;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // no-op
+        }
+    }
+
+    private void StopBusyAssistTimer()
+    {
+        _busyAssistCts?.Cancel();
+        _busyAssistCts?.Dispose();
+        _busyAssistCts = null;
     }
 
 }

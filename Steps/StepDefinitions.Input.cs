@@ -2,7 +2,7 @@ namespace AiStackchanSetup.Steps;
 
 internal static partial class StepDefinitions
 {
-    public static readonly StepDefinition Wifi = new(4, "Wi-Fi", "Wi-Fiを設定します。", "次へ");
+    public static readonly StepDefinition Wifi = new(4, "wifi", "wifiを設定します。", "次へ");
     public static readonly StepDefinition Duco = new(
         5,
         "Duino-coin",

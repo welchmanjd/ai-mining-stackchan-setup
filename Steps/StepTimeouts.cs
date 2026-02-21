@@ -9,4 +9,5 @@ public sealed class StepTimeouts
     public TimeSpan Hello { get; init; } = TimeSpan.FromSeconds(12);
     public TimeSpan SendConfig { get; init; } = TimeSpan.FromSeconds(45);
     public TimeSpan ApplyConfig { get; init; } = TimeSpan.FromSeconds(20);
+    public TimeSpan LongRunningNoticeDelay { get; init; } = TimeSpan.FromSeconds(15);
 }

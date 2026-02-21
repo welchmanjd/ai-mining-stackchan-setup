@@ -38,8 +38,8 @@ internal sealed class AiSettingsState
     public bool CaptureSerialLogAfterReboot;
     public string SpeakerVolumeText = "100";
     public int SpeakerVolumeRaw = 100;
-    public string ShareAcceptedText = "シェア獲得したよ！";
-    public string AttentionText = "Hi";
+    public string ShareAcceptedText = "掘れました";
+    public string AttentionText = "こんにちは";
     public string HelloText = "こんにちはマイニングスタックチャンです";
     public string AzureKey = string.Empty;
     public bool AzureKeyStored;

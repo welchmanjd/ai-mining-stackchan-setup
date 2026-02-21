@@ -16,7 +16,7 @@
 
 # AIマイニングスタックチャン セットアップ
 
-M5Stack Core2 向けの AIマイニングスタックチャンに、ファームウェア書き込みと初期設定（Wi-Fi / APIキー等）を行う Windows 用セットアップアプリです。
+M5Stack Core2 向けの AIマイニングスタックチャンに、ファームウェア書き込みと初期設定（wifi / APIキー等）を行う Windows 用セットアップアプリです。
 
 ## 概要
 
@@ -24,7 +24,7 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 - USB接続された M5Stack Core2 のポート検出
 - ファームウェア書き込み
-- 機能ON/OFF設定（Wi-Fi / Mining / AI）
+- 機能ON/OFF設定（wifi / Mining / AI）
 - Duino-coin / Azure / OpenAI 設定の投入
 - 設定保存・再起動
 - サポート用ログ（ZIP）作成
@@ -45,6 +45,8 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 
 - `app` フォルダ配下は実行に必要です。移動・削除しないでください。
 - `app` 直下の `AiStackchanSetup.exe` を直接起動せず、必ず `AiStackchanSetup.bat` から起動してください。
+- 入力したwifiパスワードは、ｽﾀｯｸﾁｬﾝをwifiにつなぐためにだけ使用します。
+- 入力したAPIキーは、動作確認とｽﾀｯｸﾁｬﾝの設定にだけ使用します。
 
 ## ファームウェア差し替え
 
@@ -65,6 +67,7 @@ M5Stack Core2 向けの AIマイニングスタックチャンに、ファーム
 - 開発実行時など（上記を解決できない場合）: `%LOCALAPPDATA%\AiStackchanSetup\Logs`
 
 トラブル時は、アプリ内の「サポート用ログを作成」で ZIP を作成して共有してください。
+サポート用ログには、wifiパスワードとAPIキー本体は含めません。
 
 ## 開発者向け
 

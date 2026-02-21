@@ -163,6 +163,10 @@ public partial class MainViewModel
 
             var zipPath = await _supportPackService.CreateSupportPackAsync(summary, config);
             StatusMessage = UiText.SupportPackCreated(zipPath);
+            if (ShowFailureActions)
+            {
+                StatusAssistMessage = UiText.SupportPackCreatedExitHint;
+            }
         }
         catch (Exception ex)
         {

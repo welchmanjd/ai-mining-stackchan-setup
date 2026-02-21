@@ -74,11 +74,8 @@ public sealed class DetectPortsStep : StepBase
                 vm.UpdateCurrentFirmwareInfo(null);
                 vm.IsManualPortSelection = true;
                 vm.Step1Help = StepText.FirmwareInfoNotAvailableHelp;
-                vm.StatusMessage = StepText.PortDetectionFailed;
-                return StepResult.Fail(
-                    StepText.PortDetectionFailed,
-                    guidance: StepText.FirmwareInfoNotAvailableHelp,
-                    canRetry: true);
+                vm.StatusMessage = string.Format(UiText.PortDetectedFormat, vm.SelectedPort.DisplayName);
+                return StepResult.Ok();
             },
             before: vmLocal =>
             {
